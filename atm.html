@@ -711,18 +711,26 @@ function noteTexture(val,code,kind){
   x.fillText(code, 128, 104);
   var t=new THREE.CanvasTexture(c); t.anisotropy=8; return t;
 }
-/* 按当前币种摆一排纸币在托盘上（最后两张：假币、识别不了的） */
+/* 纸币是实物，从打开页面就摆在机器左侧，不能"前面不出现、后面才出现"。
+   还没选币种时先摆默认币种那一排（改成你主推的币种即可）。 */
+var DEFAULT_CUR = 'EUR';
+function defaultCur(){
+  for(var i=0;i<CURRENCIES.length;i++){ if(CURRENCIES[i].code===DEFAULT_CUR) return CURRENCIES[i]; }
+  return CURRENCIES[0];
+}
+/* 按当前币种摆一排纸币在左侧托架上（最后两张：假币、识别不了的） */
 function buildNotes(){
   noteObjs.forEach(function(m){ scene.remove(m); });
   noteObjs=[];
-  if(!scene || !S.cur) return;
-  var items=S.cur.notes.map(function(v){ return {v:v,kind:'ok'}; });
-  items.push({v:S.cur.notes[S.cur.notes.length-1],kind:'fake'});
+  if(!scene) return;
+  var c = S.cur || defaultCur();
+  var items=c.notes.map(function(v){ return {v:v,kind:'ok'}; });
+  items.push({v:c.notes[c.notes.length-1],kind:'fake'});
   items.push({v:0,kind:'unknown'});
   var n=items.length, gap=0.105, x=-0.735, z=0.36;
   items.forEach(function(it,i){
     var m=new THREE.Mesh(new THREE.PlaneGeometry(0.16,0.09),
-      new THREE.MeshBasicMaterial({map:noteTexture(it.v,S.cur.code,it.kind),transparent:true}));
+      new THREE.MeshBasicMaterial({map:noteTexture(it.v,c.code,it.kind),transparent:true}));
     m.position.set(x, -0.22 + ((n-1)/2 - i)*gap, z);
     m.rotation.y=0.32;
     m.userData={v:it.v, kind:it.kind, home:m.position.clone()};
@@ -820,7 +828,8 @@ function applyStep3D(){
     window.__scanLens.material.emissiveIntensity = on?1.6:0.5;
     window.__scanLens.material.color.setHex(on?0x11e08a:0x0b3d33);
   }
-  noteObjs.forEach(function(m){ m.visible = (S.step===2 || S.step===0 || S.step===1); });
+  /* 纸币是实物：全程都摆在托架上，不做"按步骤显影" */
+  noteObjs.forEach(function(m){ m.visible=true; });
 }
 /* 指针：先看纸币（拖），再看屏幕（点） */
 function ndc(e){
@@ -917,6 +926,7 @@ window.__boot=function(){
   if(!window.THREE){ var el=$('loadErr'); if(el) el.style.display='flex'; return; }
   try{ initThree(); }catch(e){ var el2=$('loadErr'); if(el2){ el2.style.display='flex'; el2.textContent='3D 初始化失败: '+e.message; } return; }
   fetchRates();                                   // 拿不到网就自动回退到离线快照
+  buildNotes();                                   // 开局就摆好纸币（实物一直在机器上）
   try{ solKeypair().then(function(kp){ S.solAddr=b58enc(kp.pub); var s=$('solAddr'); if(s) s.textContent=S.solAddr; }).catch(function(){}); }catch(e){}
 };
 window.__boot();
