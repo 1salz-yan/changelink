@@ -105,7 +105,8 @@
   <div class="card">
     <h3>演示参数</h3>
     <div class="kv"><span>兑换通道</span><b>USDC（Solana）</b></div>
-    <div class="kv"><span>折算率</span><b>1 外币 = 1.00 USDC</b></div>
+    <div class="kv"><span>汇率口径</span><b>ECB 参考汇率 2026-10-09</b></div>
+    <div class="kv"><span>折算率</span><b>按币种（见选币页）</b></div>
     <div class="kv"><span>手续费</span><b>2.0%</b></div>
     <div class="kv"><span>币种</span><b>JPY/USD/EUR/KRW/THB（占位）</b></div>
     <div class="kv"><span>小额上限</span><b>按币种，如 EUR 50</b></div>
@@ -151,15 +152,15 @@
 <script>/* =========================================================================
    参数（全部写死，假数据）
    ========================================================================= */
-var RATE = 1.00;                  // 1 外币 = 1.00 USDC
 var FEE  = 0.02;                  // 2% 手续费
-/* 币种清单 —— 占位！她说还没定最终做哪些现钞，改这个数组即可 */
+/* 币种清单 —— 占位；汇率取 ECB 官方参考汇率（USD per 1 unit），日期见 FX_SRC */
+var FX_SRC = 'ECB 参考汇率 · 2026-10-09';
 var CURRENCIES = [
-  { code:'JPY', name:'日元', notes:[1000,5000,10000],       cap:10000 },
-  { code:'USD', name:'美元', notes:[1,5,10,20],             cap:20    },
-  { code:'EUR', name:'欧元', notes:[5,10,20,50],            cap:50    },
-  { code:'KRW', name:'韩元', notes:[1000,5000,10000,50000], cap:50000 },
-  { code:'THB', name:'泰铢', notes:[20,50,100,500],         cap:1000  }
+  { code:'JPY', name:'日元', fx:0.006319, notes:[1000,5000,10000],       cap:10000 },
+  { code:'USD', name:'美元', fx:1.000000, notes:[1,5,10,20],             cap:20    },
+  { code:'EUR', name:'欧元', fx:1.120600, notes:[5,10,20,50],            cap:50    },
+  { code:'KRW', name:'韩元', fx:0.000745, notes:[1000,5000,10000,50000], cap:50000 },
+  { code:'THB', name:'泰铢', fx:0.029824, notes:[20,50,100,500],         cap:1000  }
 ];
 var DEMO_WALLET = 'GTmwnfKmSKVdE2KE5yVNuhWU7qEJtMcR8HM4Q1TRDRrW';   // 演示用收款钱包
 var FINE1 = '只做小额兑换 · 免注册、不设账户、不代保管资金';
@@ -375,14 +376,15 @@ function dCurrency(){
   h2('选择要兑换的币种');
   var y=62;
   CURRENCIES.forEach(function(c,i){
-    RR(20,y,UIW-40,48,10,'#ffffff','#e7e9ee');
-    T(c.code, 32, y+20, 14.5, '#14171c', 700);
-    T(c.name, 32+uix.measureText(c.code).width+34, y+20, 12, '#8b9099');
-    T('小额上限 '+fmt(c.cap)+' '+c.code, UIW-32, y+20, 10.5, '#8b9099', 600, 'right');
-    T('面额 '+c.notes.join(' / '), 32, y+38, 10.5, '#9aa0a8');
-    HIT(20,y,UIW-40,48,function(){ pickCur(i); });
-    y+=53;
+    RR(20,y,UIW-40,56,10,'#ffffff','#e7e9ee');
+    T(c.code, 32, y+19, 14, '#14171c', 700);
+    T(c.name, 32+uix.measureText(c.code).width+34, y+19, 11.5, '#8b9099');
+    T('1 '+c.code+' = '+fmtFx(c.fx)+' USDC', 32, y+34, 10.5, '#7c5cff', 700);
+    T('面额 '+c.notes.join(' / ')+' · 上限 '+fmt(c.cap), 32, y+48, 9.5, '#9aa0a8');
+    HIT(20,y,UIW-40,56,function(){ pickCur(i); });
+    y+=60;
   });
+  T(FX_SRC, 20, UIH-72, 9, '#b0b6be');
   Btn(20, UIH-58, UIW-40, 40, '返回', {ghost:true, fn:function(){ go(0); }});
 }
 function dCash(){
@@ -390,11 +392,11 @@ function dCash(){
   var c=S.cur;
   kicker('第 2/5 步 · 放钞');
   h2('请放入现钞');
-  T(fmt(total()), UIW/2, 112, 34, '#14171c', 700, 'center');
-  var w=uix.measureText(fmt(total())).width;
-  T(c.code, UIW/2, 112, 13, '#8b9099', 600, 'center');
-  T('已入账金额', UIW/2, 132, 10.5, '#8b9099', null, 'center');
-  var y=152;
+  T(fmt(total()), UIW/2-24, 106, 34, '#14171c', 700, 'right');
+  T(c.code, UIW/2+8, 106, 13, '#8b9099', 600, 'left');
+  T('已入账金额', UIW/2, 126, 10.5, '#8b9099', null, 'center');
+  T('≈ '+amount().toFixed(2)+' USDC 到账　（1 '+c.code+' = '+fmtFx(c.fx)+' USDC）', UIW/2, 146, 10.5, '#7c5cff', 700, 'center');
+  var y=168;
   rowLine('验钞', S.vstate, y); y+=22;
   rowLine('已收', S.notes.length+' 张', y); y+=22;
   rowLine('已吐回', S.ejected+' 张', y); y+=22;
@@ -472,18 +474,19 @@ function dDone(){
   uix.beginPath(); uix.moveTo(20,186); uix.lineTo(UIW-20,186); uix.stroke(); uix.setLineDash([]);
   T('收款钱包 '+shortWallet(S.wallet), 20, 202, 11, '#5b6169', 600);
   T('时间 '+hh+':'+mm, UIW-20, 202, 11, '#5b6169', 600, 'right');
-  T('兑换率 1 外币 = '+RATE.toFixed(2)+' USDC', 20, 220, 11, '#5b6169', 600);
+  T('兑换率 1 '+S.cur.code+' = '+fmtFx(S.cur.fx)+' USDC', 20, 220, 11, '#5b6169', 600);
   T('手续费 '+(FEE*100).toFixed(1)+'%', UIW-20, 220, 11, '#5b6169', 600, 'right');
+  T(FX_SRC, 20, 234, 8.5, '#b0b6be');
   /* 交易哈希框 */
   var rec=S.sigRec||{mode:'mock',sig:''};
-  RR(20,236,UIW-40,rec.mode==='mock'?78:(rec.sig?62:54),10,'#ffffff','#e7e9ee');
+  RR(20,246,UIW-40,rec.mode==='mock'?84:(rec.sig?62:54),10,'#ffffff','#e7e9ee');
   var tag = rec.mode==='real' ? '◎ SOLANA · DEVNET' : (rec.mode==='pending' ? '◎ SOLANA · 提交中' : '◎ SOLANA · 模拟');
-  T(tag, 30, 254, 10.5, '#7c5cff', 800);
+  T(tag, 30, 264, 10.5, '#7c5cff', 800);
   var st  = rec.mode==='real' ? (rec.confirmed?'已确认':'已提交') : (rec.mode==='pending'?'确认中…':'模拟');
-  T(st, UIW-30, 254, 10.5, rec.mode==='real'?'#1a9e5f':'#b6bac1', 700, 'right');
-  if(rec.sig) wrap(rec.sig, 30, 270, UIW-60, 8.5, '#4a5058', true);
-  else T('—', 30, 270, 9, '#4a5058');
-  if(rec.mode==='mock') T('未接入 devnet，已用模拟值'+(rec.err?('（'+String(rec.err).slice(0,22)+'）'):''), 30, 304, 8, '#b0b6be');
+  T(st, UIW-30, 264, 10.5, rec.mode==='real'?'#1a9e5f':'#b6bac1', 700, 'right');
+  if(rec.sig) wrap(rec.sig, 30, 280, UIW-60, 8.5, '#4a5058', true);
+  else T('—', 30, 280, 9, '#4a5058');
+  if(rec.mode==='mock') T('未接入 devnet，已用模拟值'+(rec.err?('（'+String(rec.err).slice(0,22)+'）'):''), 30, 320, 8, '#b0b6be');
   Btn(20, UIH-58, UIW-40, 40, '再兑一笔', {primary:true, fn:resetAll});
 }
 
@@ -567,7 +570,9 @@ function solNet(rec){
   el.textContent = (!rec || rec.mode==='real') ? 'Solana devnet（真实交易）' : '离线模拟';
 }
 function total(){ return S.notes.reduce(function(a,b){return a+b;},0); }
-function amount(){ return total()*RATE*(1-FEE); }
+/* 真做币种换算：入账金额 × 该币汇率 × (1−手续费)。汇率取 ECB 官方参考汇率 */
+function amount(){ return S.cur ? total()*S.cur.fx*(1-FEE) : 0; }
+function fmtFx(v){ return v>=1 ? v.toFixed(4) : v.toFixed(6); }
 function fmt(n){ return Number(n).toLocaleString('en-US',{maximumFractionDigits:2}); }
 
 /* 物理键盘也能打字（演示时用 Mac 键盘更快） */
