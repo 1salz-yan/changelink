@@ -1,6 +1,6 @@
 # ChangeLink — leftover foreign cash, straight into your own wallet, on Solana
 
-A self-service kiosk for the foreign coins and banknotes a traveller can't spend
+A self-service kiosk for the foreign banknotes a traveller can't spend
 any more. Drop in the notes, scan your own wallet's receive code, and the same
 value arrives as **USDC in your wallet** — no sign-up, no account, no phone number.
 Hand dollars back and the machine gives you notes again, so the money is not a
@@ -44,9 +44,19 @@ That last one is the one to be careful about: our receipts are signed by the mac
 to pretend otherwise. If we build it, the honest claim is only a **mechanism** difference:
 their public key is resolved through ENS, ours would live in the machine's own on-chain
 account (the `Kiosk` PDA) and be checked by the program that pays out — no resolver in
-the path. What we have today that they do not is the other axis: the value lands in the
-traveller's **own** wallet. They create the wallet for you and hold the balance; there is
-no account here to hold.
+the path.
+
+The axis we are actually betting on is what lands in the traveller's hands, and it is worth
+being precise because it is easy to overstate. What their kiosk pays out is **tkCASH**, a
+token their own README describes as *a claim on one dollar of banknotes in a specific
+kiosk* — supply always equal to that kiosk's reserve, transfers only between allowlisted
+wallets, and the on-ramp is an email plus a Privy embedded wallet plus a World ID check.
+So the traveller ends up holding a redeemable claim on a machine's cash, inside an identity
+system, and we are not claiming that is worthless — it is a real product, and their reserve
+proving is *better* than ours. Ours is narrower and it is the thing we can defend: real
+USDC, sent to an address the traveller already controls, with no email, no embedded wallet
+and no personhood check, so what arrives can be spent anywhere rather than redeemed at the
+machine it came from.
 
 ---
 
@@ -489,7 +499,11 @@ known cost, not a bet: a screen, a note acceptor and a network connection.
    not a rewrite.
 4. **Note-acceptor hardware** — the current intake is on-screen; the state machine
    already matches what a BV/CPI acceptor reports.
-5. **A device-generated key for receipts** — the machine signs what it counted, with the
+5. **Coin acceptance.** Bureaux refuse coins because of the handling and transport cost,
+   which is exactly the gap this product is aimed at — but a coin hopper is different
+   hardware and different logistics, so notes come first and coins follow once a machine
+   is proven on a site. Until then, say "notes" rather than "coins".
+6. **A device-generated key for receipts** — the machine signs what it counted, with the
    public key stored in the `Kiosk` account and checked by the program, so a cloned machine
    cannot mint value. Stated carefully: Takarabako already ships the device-signed note with
    the key published in ENS, so this is only worth doing if we can say something more than
