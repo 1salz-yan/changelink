@@ -105,7 +105,7 @@
   <div class="card">
     <h3>演示参数</h3>
     <div class="kv"><span>兑换通道</span><b>USDC（Solana）</b></div>
-    <div class="kv"><span>汇率口径</span><b>ECB 参考汇率 2026-10-09</b></div>
+    <div class="kv"><span>汇率</span><b id="fxSrc">离线快照</b></div>
     <div class="kv"><span>折算率</span><b>按币种（见选币页）</b></div>
     <div class="kv"><span>手续费</span><b>2.0%</b></div>
     <div class="kv"><span>币种</span><b>JPY/USD/EUR/KRW/THB（占位）</b></div>
@@ -153,15 +153,52 @@
    参数（全部写死，假数据）
    ========================================================================= */
 var FEE  = 0.02;                  // 2% 手续费
-/* 币种清单 —— 占位；汇率取 ECB 官方参考汇率（USD per 1 unit），日期见 FX_SRC */
-var FX_SRC = 'ECB 参考汇率 · 2026-10-09';
+/* 币种清单 —— 占位；fx = 1 单位该币值多少 USDC（USD）。
+   fx 运行时会从 FX_API 实时抓取；抓不到网就用下面这份 ECB 离线快照，界面会标明用的是哪个。 */
+var FX_SNAPSHOT = { JPY:0.006319, USD:1.000000, EUR:1.120600, KRW:0.000745, THB:0.029824 };
+var FX_SNAP_SRC = 'ECB 参考汇率 · 2026-10-09';
+var FX_API = 'https://open.er-api.com/v6/latest/USD';
+var FX_SRC = '离线快照 · ' + FX_SNAP_SRC;
+var FX_LIVE = false;
 var CURRENCIES = [
-  { code:'JPY', name:'日元', fx:0.006319, notes:[1000,5000,10000],       cap:10000 },
-  { code:'USD', name:'美元', fx:1.000000, notes:[1,5,10,20],             cap:20    },
-  { code:'EUR', name:'欧元', fx:1.120600, notes:[5,10,20,50],            cap:50    },
-  { code:'KRW', name:'韩元', fx:0.000745, notes:[1000,5000,10000,50000], cap:50000 },
-  { code:'THB', name:'泰铢', fx:0.029824, notes:[20,50,100,500],         cap:1000  }
+  { code:'JPY', name:'日元', fx:FX_SNAPSHOT.JPY, notes:[1000,5000,10000],       cap:10000 },
+  { code:'USD', name:'美元', fx:FX_SNAPSHOT.USD, notes:[1,5,10,20],             cap:20    },
+  { code:'EUR', name:'欧元', fx:FX_SNAPSHOT.EUR, notes:[5,10,20,50],            cap:50    },
+  { code:'KRW', name:'韩元', fx:FX_SNAPSHOT.KRW, notes:[1000,5000,10000,50000], cap:50000 },
+  { code:'THB', name:'泰铢', fx:FX_SNAPSHOT.THB, notes:[20,50,100,500],         cap:1000  }
 ];
+/* 实时抓汇率：成功→覆盖 fx 并标明抓取时间；失败/超时→退回 ECB 离线快照（保证断网也能演示） */
+var FX_STATE = 'snap';                       // loading | live | snap
+function fetchRates(cb){
+  if(typeof fetch!=='function'){ if(cb) cb(false); return; }
+  FX_STATE='loading'; applyFxLabels();
+  var ctl=null, tid=null;
+  try{ ctl=new AbortController(); tid=setTimeout(function(){ ctl.abort(); }, 12000); }catch(e){}   // 卡住也要落地
+  fetch(FX_API, ctl?{signal:ctl.signal}:undefined).then(function(r){ return r.json(); }).then(function(j){
+    if(tid) clearTimeout(tid);
+    if(!j || j.result!=='success' || !j.rates) throw new Error('响应异常');
+    CURRENCIES.forEach(function(c){
+      var v=j.rates[c.code];
+      if(v>0) c.fx = 1/v;                       // API 给的是 1 USD = X，转成 1 X = ? USD
+    });
+    FX_LIVE = true; FX_STATE='live';
+    FX_SRC = '实时抓取（汇率日 ' + String(j.time_last_update_utc||'').slice(5,16) + '）';
+    applyFxLabels();
+    if(cb) cb(true);
+  }).catch(function(){
+    if(tid) clearTimeout(tid);
+    CURRENCIES.forEach(function(c){ c.fx = FX_SNAPSHOT[c.code]; });
+    FX_LIVE = false; FX_STATE='snap';
+    FX_SRC = '离线快照 · ' + FX_SNAP_SRC;
+    applyFxLabels();
+    if(cb) cb(false);
+  });
+}
+function applyFxLabels(){
+  var el=$('fxSrc');
+  if(el) el.textContent = FX_STATE==='loading' ? '获取中…' : (FX_LIVE ? '实时 · 已获取' : '离线快照 · 未联网');
+  if(S.step===1 || S.step===5) drawUI();
+}
 var DEMO_WALLET = 'GTmwnfKmSKVdE2KE5yVNuhWU7qEJtMcR8HM4Q1TRDRrW';   // 演示用收款钱包
 var FINE1 = '只做小额兑换 · 免注册、不设账户、不代保管资金';
 var FINE2 = '服务范围：日本 / 德国 / 土耳其 / 东南亚（不含中国内地）';
@@ -385,6 +422,8 @@ function dCurrency(){
     y+=60;
   });
   T(FX_SRC, 20, UIH-72, 9, '#b0b6be');
+  T('刷新汇率', UIW-20, UIH-72, 9.5, '#7c5cff', 700, 'right');
+  HIT(UIW-68, UIH-84, 48, 18, function(){ toast('正在刷新汇率…'); fetchRates(function(o){ toast(o?'汇率已更新（实时）':'拿不到网络，已用离线快照'); }); });
   Btn(20, UIH-58, UIW-40, 40, '返回', {ghost:true, fn:function(){ go(0); }});
 }
 function dCash(){
@@ -680,12 +719,12 @@ function buildNotes(){
   var items=S.cur.notes.map(function(v){ return {v:v,kind:'ok'}; });
   items.push({v:S.cur.notes[S.cur.notes.length-1],kind:'fake'});
   items.push({v:0,kind:'unknown'});
-  var n=items.length, gap=0.152, y=-0.776, z=0.415;
+  var n=items.length, gap=0.105, x=-0.735, z=0.36;
   items.forEach(function(it,i){
-    var m=new THREE.Mesh(new THREE.PlaneGeometry(0.15,0.084),
+    var m=new THREE.Mesh(new THREE.PlaneGeometry(0.16,0.09),
       new THREE.MeshBasicMaterial({map:noteTexture(it.v,S.cur.code,it.kind),transparent:true}));
-    m.position.set((i-(n-1)/2)*gap, y, z);
-    m.rotation.x=-0.35;
+    m.position.set(x, -0.22 + ((n-1)/2 - i)*gap, z);
+    m.rotation.y=0.32;
     m.userData={v:it.v, kind:it.kind, home:m.position.clone()};
     m.renderOrder=2;
     scene.add(m); noteObjs.push(m);
@@ -764,11 +803,12 @@ function buildKiosk(){
   mouth.position.set(0,-0.585,FRONT+0.036); g.add(mouth);
   var slotLbl=makeLabel('进钞口 · 拖到这里',0.5,'#5b6169'); slotLbl.position.set(0,-0.485,FRONT+0.024); g.add(slotLbl);
 
-  /* 纸币托盘（贴在机身下部前方；吐回也是落到这张托盘上） */
-  trayMesh=new THREE.Mesh(new THREE.BoxGeometry(0.94,0.03,0.22),
+  /* 纸币托架：立在机身左侧，不会被机身挡住；吐回也是落回各自原位 */
+  trayMesh=new THREE.Mesh(new THREE.BoxGeometry(0.028,0.76,0.15),
     new THREE.MeshStandardMaterial({color:0xe3e7ee, roughness:0.75}));
-  trayMesh.position.set(0,-0.805,0.415); trayMesh.castShadow=true; trayMesh.receiveShadow=true; g.add(trayMesh);
-  var trayLbl=makeLabel('纸币 · 拖进进钞口',0.46,'#8b9099'); trayLbl.position.set(0,-0.815,0.55); g.add(trayLbl);
+  trayMesh.position.set(-0.792,-0.22,0.345); trayMesh.castShadow=true; trayMesh.receiveShadow=true; g.add(trayMesh);
+  var trayLbl=makeLabel('纸币 · 拖到进钞口',0.42,'#8b9099');
+  trayLbl.position.set(-0.735,0.255,0.40); trayLbl.rotation.y=0.32; g.add(trayLbl);
 
   var base=new THREE.Mesh(new THREE.CylinderGeometry(0.46,0.54,0.11,36), darkMat);
   base.position.y=-H/2-0.055; base.castShadow=true; base.receiveShadow=true; g.add(base);
@@ -875,7 +915,9 @@ function animate(){
 }
 window.__boot=function(){
   if(!window.THREE){ var el=$('loadErr'); if(el) el.style.display='flex'; return; }
-  try{ initThree(); }catch(e){ var el2=$('loadErr'); if(el2){ el2.style.display='flex'; el2.textContent='3D 初始化失败: '+e.message; } }
+  try{ initThree(); }catch(e){ var el2=$('loadErr'); if(el2){ el2.style.display='flex'; el2.textContent='3D 初始化失败: '+e.message; } return; }
+  fetchRates();                                   // 拿不到网就自动回退到离线快照
+  try{ solKeypair().then(function(kp){ S.solAddr=b58enc(kp.pub); var s=$('solAddr'); if(s) s.textContent=S.solAddr; }).catch(function(){}); }catch(e){}
 };
 window.__boot();
 </script>
