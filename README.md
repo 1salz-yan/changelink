@@ -199,6 +199,35 @@ add up. The UI is not in this loop.
 python scripts/devnet_smoke.py      # pip install solana solders
 ```
 
+### Running the kiosk UI against devnet
+
+The browser is not a mock-up of the chain any more — it *is* a client. Two one-off steps:
+
+```bash
+# 1. the operator side: create the stablecoin, create the treasury, float it
+python scripts/provision_kiosk.py --wallet <the kiosk wallet shown on the page>
+#    → prints four values; paste them into `var CL = { … }` in atm.html
+
+# 2. the machine side: it registers itself, signing with its own wallet
+open "atm.html#provision"
+```
+
+Everything after that is the normal flow, and every exchange in the UI is a real devnet
+transaction. The machine signs with the key in its own browser storage; no operator key is
+anywhere near a swap. `scripts/devnet_ui_check.js` does both steps headless, with assertions
+(it reads the kiosk wallet's key from a local file — that key is the machine's own, and is
+not in this repo):
+
+```
+  PASS 这台机器已经在链上注册过了（owner = 程序，JCF7PkQG…）
+  PASS exchange 上链成功，confirmed=true
+  PASS 节点认这笔交易（status=finalized）
+  PASS 这一笔到账 9.8 稳定币 = 毛额扣 2% 手续费（余额 19.6 → 29.4）
+```
+
+That run uses the shipped `atm.html` code — the same `solSendExchange` the page calls —
+with only the DOM layer stubbed out.
+
 In mainland China, point it at a local RPC relay (`--rpc http://127.0.0.1:8899`): the public
 devnet RPC is unreachable there, and the Solana websocket never honours a proxy.
 
@@ -221,6 +250,11 @@ sounding big.
 - Currency conversion: `amount × rate × (1 − fee)`.
 - **Live exchange rates**, fetched at runtime, with a **30-second quote lock** — the
   rate the traveller is shown is frozen and the settlement uses that frozen rate.
+- **The kiosk UI settles through the program.** `atm.html` builds the transaction itself
+  and sends it — no library, no CDN. It derives the traveller's token account from nothing
+  but the scanned address, creates it idempotently (the machine pays the rent), and calls
+  `exchange`. That path is run end-to-end against devnet by
+  `scripts/devnet_ui_check.js`, on the shipped file.
 - **A real Solana devnet client**, written from scratch inside the file — no CDN, no
   `web3.js`, no wallet-adapter library. base58 codec, Ed25519 signing via WebCrypto,
   hand-assembled transaction, direct JSON-RPC.
@@ -232,16 +266,11 @@ sounding big.
 **Simulated — and labelled as such in the UI**
 
 - Banknote intake: no hardware, no real note validation.
-- **The browser demo does not call the program yet.** `atm.html` still sends a placeholder
-  0.001 SOL transfer to a fixed demo destination — it was written before the program
-  existed, and pointing it at the deployed program is roadmap item 1. We say so plainly,
-  because it is the difference between a UI prototype and a working product; the settlement
-  layer itself is real, and it is the layer that moves the money.
+- **The demo stablecoin is a mint the smoke script creates (6 decimals, USDC-shaped). It is
+  not real USDC.**
 - **The UI has no cash-out screen yet.** The program takes stablecoin back in and the
   traveller can sign that transaction (the devnet run above does exactly that), but the
   kiosk screen only shows the cash-in flow so far.
-- The demo stablecoin is a mint the smoke script creates (6 decimals, USDC-shaped). It is
-  not real USDC.
 - **The quote lock's rate movement is simulated.** The provider is a *daily*
   reference feed, so a live re-quote would return the same number and the lock would
   be invisible. A small random walk (±0.2% per step, capped at ±0.6%) is layered on
@@ -337,8 +366,13 @@ This is the *UI's own* Solana layer, separate from the settlement program above.
   bundled `web3.js` breaks that.
 - Signing uses the browser's native **Ed25519** (`crypto.subtle`), so no crypto
   library is needed either.
-- The transaction is an ordinary `SystemProgram.transfer`: header `[1,0,1]`, three
-  account keys (payer, destination, SystemProgram), 12-byte transfer instruction.
+- The transaction is **two instructions**: an ATA `CreateIdempotent` (so a traveller who has
+  never held the stablecoin still gets paid — the machine pays the rent) and our program's
+  `exchange`. Header `[1,0,6]`, eleven accounts, one signature.
+- The traveller's token account is **derived in the browser** from the scanned address:
+  `sha256` for the PDA seeds and a hand-written ed25519 curve test to pick the bump, because
+  a wrong bump is a wrong address. `scripts/verify_chain.js` checks that derivation against
+  the official `findProgramAddress` and against an ATA that really exists on devnet.
 
 The **destination is the address the traveller provided** — decoded and checked to be
 32 bytes before signing. The kiosk's own wallet only pays the fee; it is a
@@ -385,8 +419,31 @@ copy rather than code. The interface deliberately avoids crypto jargon a travell
 would not understand (私钥 / 助记词 / 链上 / 代币 / gas never appear); the Solana layer
 is real and explainable, it just isn't shouted at the customer.
 
-The program has its own suite — `cargo test`, 17 tests, run against the real SPL Token
+The program has its own suite — `cargo test`, 27 tests, run against the real SPL Token
 program inside LiteSVM ([above](#the-settlement-layer-on-chain)).
+
+And the chain half of the page has its own harness, which extracts the shipped functions from
+`atm.html` and compares them with the official library:
+
+```bash
+npm i                          # @solana/web3.js is the reference implementation
+node scripts/verify_chain.js
+```
+
+```
+== 1. anchor discriminator ==
+  PASS sha256("global:exchange")[0..8] 与官方算法一致
+== 2. PDAs vs 官方 findProgramAddress ==
+  PASS 8 组 receipt PDA 与官方一致（bump 搜寻 + 曲线判定）
+== 3. ATA 推导 vs devnet 上真实存在的账户 ==
+  PASS 真实钱包的 ATA 推导正确（HS78Bxmx…，链上真存在）
+== 4. 会话拼出来的整条交易，官方库能不能解析回来 ==
+  PASS header = 1 签名者 / 0 只读签名者 / 6 只读非签名者
+  PASS 指令 ① 是 ATA CreateIdempotent，data = [1]
+  PASS 指令 ② 是 changeLink exchange，参数逐字节正确
+  PASS exchange 的账户角色正确
+  PASS 官方库验签通过（整条交易可被节点接受）
+```
 
 ---
 
@@ -399,7 +456,10 @@ programs/changelink/src/        the settlement program (Anchor/Rust)
   instructions/                 initialize_kiosk · exchange · redeem · set_limits
                                 · withdraw_treasury · attest_backing
 programs/changelink/tests/      LiteSVM tests — real .so, real SPL Token program
-scripts/devnet_smoke.py         end-to-end run against devnet
+scripts/devnet_smoke.py         end-to-end run against devnet (all five instructions)
+scripts/provision_kiosk.py      one-off operator step: stablecoin + treasury for a machine
+scripts/verify_chain.js         chain half of the page — checked against the official library
+scripts/devnet_ui_check.js      the shipped page code, run against devnet headless
 Anchor.toml · Cargo.toml        build config; the program id lives in lib.rs and Anchor.toml
 atm.html                        the kiosk UI — single file, self-contained
 verify.js                       verification harness (syntax, copy guard, official-lib diff)
@@ -420,20 +480,16 @@ known cost, not a bet: a screen, a note acceptor and a network connection.
 
 ## Roadmap
 
-1. **Point `atm.html` at the deployed program** — swap the placeholder SOL transfer for the
-   `exchange` instruction, and create the traveller's token account in the same transaction
-   (`CreateIdempotent`, the machine pays the rent). That layout is already proven on devnet
-   by `scripts/devnet_smoke.py`; only the UI is behind.
-2. **A cash-out screen in the UI.** The program supports it and the traveller signs it —
+1. **A cash-out screen in the UI.** The program supports it and the traveller signs it —
    the devnet run above does it — but the kiosk screen only shows the cash-in flow.
-3. **Real USDC** — the devnet run uses a demo mint; moving to USDC is a mint address and a
+2. **Real USDC** — the devnet run uses a demo mint; moving to USDC is a mint address and a
    treasury funding step, not a program change.
-4. **A licensed settlement partner** for quoting, screening and any KYC the
+3. **A licensed settlement partner** for quoting, screening and any KYC the
    jurisdiction requires — the product is designed so this is a partner integration,
    not a rewrite.
-5. **Note-acceptor hardware** — the current intake is on-screen; the state machine
+4. **Note-acceptor hardware** — the current intake is on-screen; the state machine
    already matches what a BV/CPI acceptor reports.
-6. **A device-generated key for receipts** — the machine signs what it counted, with the
+5. **A device-generated key for receipts** — the machine signs what it counted, with the
    public key stored in the `Kiosk` account and checked by the program, so a cloned machine
    cannot mint value. Stated carefully: Takarabako already ships the device-signed note with
    the key published in ENS, so this is only worth doing if we can say something more than
