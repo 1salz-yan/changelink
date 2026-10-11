@@ -122,6 +122,32 @@
     font-family:ui-monospace,Menlo,monospace;color:var(--ink);user-select:none}
   .kb .k:active{background:#e9edf3}
   .kb .k.wide{flex:1.7;font-size:12px}
+  /* 选币种 */
+  .curgrid{display:flex;flex-direction:column;gap:6px}
+  .curcard{pointer-events:auto;cursor:pointer;border:1px solid var(--line);border-radius:10px;
+    background:#fff;padding:8px 11px}
+  .curcard:hover{border-color:#c9ccd3}
+  .curcard .cc-top{display:flex;justify-content:space-between;align-items:baseline;font-size:13px}
+  .curcard .cc-top b{font-size:14.5px}
+  .curcard .cc-top span{color:var(--sub);font-size:11.5px}
+  .curcard .cc-sub{font-size:10.5px;color:var(--sub);margin-top:2px}
+  /* 摆在进钞口旁的纸币（含一张假币） */
+  .notes{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .banknote{pointer-events:auto;cursor:pointer;width:60px;height:38px;border-radius:6px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,#e9f4ec,#cfe7d6 60%,#e9f4ec);border:1px solid #bcd8c4;
+    box-shadow:0 2px 0 rgba(0,0,0,.06);user-select:none}
+  .banknote:active{transform:translateY(1px)}
+  .banknote .bn-val{font-size:12.5px;font-weight:700;color:#1d4a2c}
+  .banknote .bn-cur{font-size:8.5px;color:#4a7a58;letter-spacing:.1em}
+  .banknote.fake{background:linear-gradient(135deg,#f7ecec,#ecd4d4 60%,#f7ecec);border-color:#dfb9b9}
+  .banknote.fake .bn-val{color:#7a2a2a}
+  .banknote.fake .bn-cur{color:#a06a6a}
+  .banknote.unknown{background:linear-gradient(135deg,#f1f2f4,#dfe2e7 60%,#f1f2f4);border-color:#cfd3da}
+  .banknote.unknown .bn-val{color:#6b7280}
+  .banknote.unknown .bn-cur{color:#8b9099}
+  .ejbadge{margin-top:7px;font-size:11px;font-weight:600;color:#b4342c;background:#fdecea;
+    border:1px solid #f3c9c4;border-radius:8px;padding:5px 9px}
   .txbox{margin-top:9px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 11px}
   .txrow{display:flex;justify-content:space-between;align-items:center;font-size:10.5px}
   .txrow .sol{font-weight:800;letter-spacing:.10em;color:#7c5cff}
@@ -160,10 +186,11 @@
   <div class="card">
     <h3>怎么玩</h3>
     <ol>
-      <li>点 <b>开始兑换</b>，进入放钞</li>
-      <li>点面额按钮，看纸币<b>滑进进钞口</b>，金额累加（只收小额）</li>
-      <li>点 <b>完成放钞</b>，输入<b>你钱包</b>的收款地址</li>
-      <li>看处理动画，等值 USDC <b>直接进你的钱包</b>；完成页给出 Solana 交易哈希</li>
+      <li>点 <b>开始兑换</b>，先选币种</li>
+      <li>把纸币放进进钞口，机器<b>逐张验钞</b></li>
+      <li><b>假币 / 识别不了的 / 超出小额的，当场吐回</b></li>
+      <li>用屏幕键盘输入你钱包的收款地址</li>
+      <li>等值 USDC 直接进你的钱包；完成页给出 Solana 交易哈希</li>
     </ol>
   </div>
   <div class="card">
@@ -171,7 +198,9 @@
     <div class="kv"><span>兑换通道</span><b>USDC（Solana）</b></div>
     <div class="kv"><span>折算率</span><b>1 外币 = 1.00 USDC</b></div>
     <div class="kv"><span>手续费</span><b>2.0%</b></div>
-    <div class="kv"><span>单笔上限</span><b>50 外币（只做小额）</b></div>
+    <div class="kv"><span>币种</span><b>JPY/USD/EUR/KRW/THB（占位）</b></div>
+    <div class="kv"><span>小额上限</span><b>按币种，如 EUR 50</b></div>
+    <div class="kv"><span>吐回</span><b>假币 / 识别不了 / 超上限</b></div>
     <div class="kv"><span>到账</span><b>直接进旅客钱包</b></div>
     <div class="kv"><span>网络</span><b id="solNet">Solana devnet</b></div>
   </div>
@@ -217,7 +246,14 @@
    ========================================================================= */
 var RATE = 1.00;                  // 1 外币 = 1.00
 var FEE  = 0.02;                  // 2% 手续费
-var SMALL_CAP   = 50;             // 只做小额：单笔上限（外币）
+/* 币种清单 —— 占位！她说还没定最终做哪些现钞，改这个数组即可 */
+var CURRENCIES = [
+  { code:'JPY', name:'日元', notes:[1000,5000,10000],       cap:10000 },
+  { code:'USD', name:'美元', notes:[1,5,10,20],             cap:20    },
+  { code:'EUR', name:'欧元', notes:[5,10,20,50],            cap:50    },
+  { code:'KRW', name:'韩元', notes:[1000,5000,10000,50000], cap:50000 },
+  { code:'THB', name:'泰铢', notes:[20,50,100,500],         cap:1000  }
+];
 var DEMO_WALLET = 'GTmwnfKmSKVdE2KE5yVNuhWU7qEJtMcR8HM4Q1TRDRrW';   // 演示用收款钱包
 var FINE1 = '只做小额兑换 · 免注册、不设账户、不代保管资金';
 var FINE2 = '服务范围：日本 / 德国 / 土耳其 / 东南亚（不含中国内地）';
@@ -226,7 +262,7 @@ var ui = document.getElementById('screenUI');
 ui.style.transform='translate('+Math.round((window.innerWidth-380)/2)+'px,'+Math.round((window.innerHeight-518)/2)+'px)';
 
 /* 状态 */
-var S = { step:0, notes:[], wallet:'', walletOK:false, sigRec:null };
+var S = { step:0, cur:null, notes:[], wallet:'', walletOK:false, sigRec:null, rejected:0, vstate:'待机', verifying:false };
 
 /* =========================================================================
    假数据回退：随机 base58（离线/失败时用）
@@ -380,10 +416,11 @@ function fine(){ return '<div class="fine"><span>'+FINE1+'</span><span>'+FINE2+'
 function render(){
   var h='';
   if(S.step===0) h=scrIdle();
-  else if(S.step===1) h=scrCash();
-  else if(S.step===2) h=scrWallet();
-  else if(S.step===3) h=scrProc();
-  else if(S.step===4) h=scrDone();
+  else if(S.step===1) h=scrCurrency();
+  else if(S.step===2) h=scrCash();
+  else if(S.step===3) h=scrWallet();
+  else if(S.step===4) h=scrProc();
+  else if(S.step===5) h=scrDone();
   ui.innerHTML='<div class="ui">'+h+'</div>';
   updateWallet();
 }
@@ -398,28 +435,63 @@ function scrIdle(){
     + '<div class="foot"><button class="primary" onclick="startFlow()">开始兑换</button></div>'
     + fine();
 }
-/* 1 放钞 */
-function scrCash(){
-  var dens=[5,10,20,50].map(function(v){
-    return '<div class="chip" onclick="insertNote('+v+')">'+v+'</div>';
+/* 1 选币种（她还没定最终清单，先占位） */
+function scrCurrency(){
+  var cards=CURRENCIES.map(function(c,i){
+    return '<div class="curcard" onclick="pickCur('+i+')">'
+      + '<div class="cc-top"><b>'+c.code+'</b><span>'+c.name+'</span></div>'
+      + '<div class="cc-sub">面额 '+c.notes.join(' / ')+'</div>'
+      + '<div class="cc-sub">小额上限 '+fmt(c.cap)+' '+c.code+'</div>'
+      + '</div>';
   }).join('');
-  return '<div class="kicker">第 1/4 步 · 放钞</div>'
-    + '<h2>请放入现钞</h2>'
+  return '<div class="kicker">第 1/5 步 · 选币种</div>'
+    + '<h2 style="font-size:18px;margin-top:5px">选择要兑换的币种</h2>'
+    + '<div class="body" style="overflow:hidden"><div class="curgrid">'+cards+'</div>'
+    +   '<div class="note" style="margin-top:8px">只收纸币、只做小额。清单是占位的，定了就改。</div></div>'
+    + '<div class="foot"><button class="ghost" onclick="go(0)">返回</button></div>'
+    + fine();
+}
+function pickCur(i){
+  S.cur=CURRENCIES[i]; S.notes=[]; S.rejected=0; S.ejected=0; S.ejreason=''; S.vstate='待机';
+  go(2);
+  toast('已选 '+S.cur.code+'，请放入现钞');
+}
+/* 2 放钞 + 验钞（不通过的一律吐回） */
+function scrCash(){
+  if(!S.cur) return scrCurrency();
+  var c=S.cur;
+  var items=c.notes.map(function(v){ return {v:v, kind:'ok'}; });
+  items.push({ v:c.notes[c.notes.length-1], kind:'fake' });    // 假币
+  items.push({ v:0, kind:'unknown' });                          // 认不出来的币
+  var bn=items.map(function(it){
+    return '<div class="banknote '+(it.kind==='ok'?'':it.kind)+'" onclick="insertNote('+it.v+',\''+it.kind+'\')">'
+      + '<span class="bn-val">'+(it.kind==='unknown'?'?':fmt(it.v))+'</span>'
+      + '<span class="bn-cur">'+c.code+'</span></div>';
+  }).join('');
+  var ej=S.ejreason
+    ? '<div class="ejbadge">↩ 已吐回：'+S.ejreason+'</div>'
+    : '<div class="note">把纸币放进机身进钞口；机器逐张验钞，假币/识别不了的当场吐回。</div>';
+  return '<div class="kicker">第 2/5 步 · 放钞</div>'
+    + '<h2 style="font-size:19px;margin-top:5px">请放入现钞</h2>'
     + '<div class="body">'
-    +   '<div class="big"><div class="n">'+fmt(total())+'<small>外币</small></div>'
-    +   '<div class="e">已识别金额</div></div>'
-    +   '<div class="rows"><div class="row"><span>张数</span><b>'+S.notes.length+' 张</b></div>'
-    +   '<div class="row"><span>单笔上限</span><b>'+SMALL_CAP+' 外币</b></div></div>'
-    +   '<div class="note">只收小额；点面额按钮，或直接点机身进钞口</div>'
-    +   '<div class="chips">'+dens+'</div>'
+    +   '<div class="big" style="margin-top:5px"><div class="n">'+fmt(total())+'<small>'+c.code+'</small></div>'
+    +   '<div class="e">已入账金额</div></div>'
+    +   '<div class="rows" style="margin-top:7px">'
+    +     '<div class="row"><span>验钞</span><b id="vstate">'+S.vstate+'</b></div>'
+    +     '<div class="row"><span>已收</span><b>'+S.notes.length+' 张</b></div>'
+    +     '<div class="row"><span>已吐回</span><b>'+S.ejected+' 张</b></div>'
+    +     '<div class="row"><span>小额上限</span><b>'+fmt(c.cap)+' '+c.code+'</b></div>'
+    +   '</div>'
+    +   ej
+    +   '<div class="notes">'+bn+'</div>'
     + '</div>'
     + '<div class="foot"><button class="ghost" onclick="startFlow()">取消</button>'
-    + '<button class="primary" '+(S.notes.length?'':'disabled')+' onclick="go(2)">完成放钞</button></div>'
+    + '<button class="primary" '+(S.notes.length?'':'disabled')+' onclick="go(3)">完成放钞</button></div>'
     + fine();
 }
 /* 2 收款钱包（输入旅客自己的钱包地址；屏幕键盘） */
 function scrWallet(){
-  return '<div class="kicker">第 2/4 步 · 收款钱包</div>'
+  return '<div class="kicker">第 3/5 步 · 收款钱包</div>'
     + '<h2 style="font-size:18px;margin-top:5px">输入你钱包的收款地址</h2>'
     + '<div class="body" style="overflow:hidden;margin-top:9px">'
     +   '<div class="field" style="margin-top:0"><input id="wallet" autocomplete="off" spellcheck="false" placeholder="输入钱包地址" value="'+(S.wallet||'')+'" oninput="onWalletInput(this.value)"></div>'
@@ -428,7 +500,7 @@ function scrWallet(){
     +     '<a class="txlink" style="margin-left:6px" href="#" onclick="event.preventDefault();scanWallet()">扫码</a>'
     +     '<a class="txlink" style="margin-left:8px" href="#" onclick="event.preventDefault();var i=$(\'wallet\');i.value=DEMO_WALLET;onWalletInput(i.value)">演示地址</a></div>'
     + '</div>'
-    + '<div class="foot"><button class="ghost" onclick="go(1)">返回</button>'
+    + '<div class="foot"><button class="ghost" onclick="go(2)">返回</button>'
     + '<button class="primary" id="btnWallet" '+(S.walletOK?'':'disabled')+' onclick="startProc()">完成</button></div>'
     + fine();
 }
@@ -448,7 +520,7 @@ function kbTap(ch){ var i=$('wallet'); if(!i) return; i.value=(i.value||'')+ch; 
 function kbBack(){ var i=$('wallet'); if(!i) return; i.value=(i.value||'').slice(0,-1); onWalletInput(i.value); }
 /* 3 处理中 */
 function scrProc(){
-  return '<div class="kicker">第 3/4 步 · 兑换</div>'
+  return '<div class="kicker">第 4/5 步 · 兑换</div>'
     + '<h2>正在兑换</h2>'
     + '<div class="body"><div class="proc" id="proc">'
     +   '<div class="p" data-k="0"><span class="d"></span>校验收款钱包</div>'
@@ -464,7 +536,7 @@ function scrDone(){
   var amt=amount();
   var t=new Date();
   var hh=('0'+t.getHours()).slice(-2), mm=('0'+t.getMinutes()).slice(-2);
-  return '<div class="kicker">第 4/4 步 · 完成</div>'
+  return '<div class="kicker">第 5/5 步 · 完成</div>'
     + '<div class="body" style="display:flex;flex-direction:column;justify-content:center">'
     +   '<div class="okico">✅</div>'
     +   '<div class="big" style="margin-top:6px"><div class="n">'+amt.toFixed(2)+'<small>USDC · 已进你的钱包</small></div></div>'
@@ -482,14 +554,30 @@ function scrDone(){
 /* =========================================================================
    流程逻辑
    ========================================================================= */
-function startFlow(){ S.notes=[]; go(1); toast('进钞口已就绪，请放入纸币'); }
-function insertNote(v){
-  if(S.step!==1){ toast('请先开始兑换'); return; }
-  if(total()+v > SMALL_CAP){ toast('只做小额，单笔上限 '+SMALL_CAP+' 外币'); return; }
-  S.notes.push(v); noteAnim=1; render();
-  toast('已收入 '+v+' 外币');
+function startFlow(){ S.cur=null; S.notes=[]; S.rejected=0; S.ejected=0; S.ejreason=''; S.vstate='待机'; go(1); }
+/* 塞钞：ok=验钞通过；fake=疑似假币；unknown=识别不了；超小额上限也算"多余" */
+function insertNote(v, kind){
+  kind = kind || 'ok';
+  if(S.step!==2){ toast('请先选币种'); return; }
+  if(S.verifying) return;
+  S.verifying=true; S.vstate='验钞中…'; S.ejreason=''; render();
+  setTimeout(function(){
+    S.verifying=false;
+    var over = (kind==='ok' && total()+v > S.cur.cap);
+    if(kind!=='ok' || over){
+      S.ejected++;
+      S.ejreason = kind==='fake' ? '疑似假币' : (kind==='unknown' ? '无法识别' : '超出小额上限（只做小额）');
+      S.vstate   = kind==='fake' ? '未通过'   : (kind==='unknown' ? '无法识别' : '超出上限');
+      noteBackAnim=1;                       // 钞票进一半再吐回来
+      toast('已吐回：'+S.ejreason);
+    }else{
+      S.notes.push(v); S.vstate='通过'; noteAnim=1;
+      toast('验钞通过 · 已入账 '+fmt(v)+' '+S.cur.code);
+    }
+    render();
+  }, 700);
 }
-function resetAll(){ S.notes=[]; S.wallet=''; S.walletOK=false; stopCam(); $('camPanel').hidden=true; go(0); }
+function resetAll(){ S.cur=null; S.notes=[]; S.rejected=0; S.ejected=0; S.ejreason=''; S.vstate='待机'; S.wallet=''; S.walletOK=false; stopCam(); $('camPanel').hidden=true; go(0); }
 
 /* 收款钱包（旅客自己的钱包）：必须能被 base58 解成 32 字节，否则后面签名一定失败 */
 function walletShapeOK(a){
@@ -558,7 +646,7 @@ function startCam(){
         if(fmts.indexOf('qr_code')>=0){
           detector=new window.BarcodeDetector({formats:['qr_code']});
           detectTimer=setInterval(function(){
-            if(S.step!==2 || !detector) return;
+            if(S.step!==3 || !detector) return;
             detector.detect($('video')).then(function(codes){ if(codes && codes.length) onWalletScan(codes[0].rawValue||''); }).catch(function(){});
           },420);
         }
@@ -597,7 +685,7 @@ function toast(msg){
 /* =========================================================================
    3D 场景：自助兑换机
    ========================================================================= */
-var renderer, scene, camera, screenMesh, screenCorners=[], slotMesh, noteMesh, noteAnim=0;
+var renderer, scene, camera, screenMesh, screenCorners=[], slotMesh, noteMesh, noteAnim=0, noteBackAnim=0;
 var orbit={ theta:0.30, phi:1.46, r:4.15, tTheta:0.30, tPhi:1.46, tR:4.15 };
 var target=null;
 
@@ -715,7 +803,7 @@ function buildKiosk(){
 
 function applyStep3D(){
   if(window.__scanLens){
-    var on = (S.step===2);
+    var on = (S.step===3);
     window.__scanLens.material.emissiveIntensity = on?1.6:0.5;
     window.__scanLens.material.color.setHex(on?0x11e08a:0x0b3d33);
   }
@@ -739,11 +827,11 @@ function bindOrbit(canvas){
   },{passive:false});
   // 点进钞口 = 放入现金
   canvas.addEventListener('click',function(e){
-    if(S.step!==1) return;
+    if(S.step!==2 || !S.cur) return;
     var r=canvas.getBoundingClientRect();
     var m=new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
     var ray=new THREE.Raycaster(); ray.setFromCamera(m,camera);
-    if(slotMesh && ray.intersectObject(slotMesh,true).length) insertNote(10);
+    if(slotMesh && ray.intersectObject(slotMesh,true).length) insertNote(S.cur.notes[0],'ok');
   });
 }
 
@@ -802,6 +890,14 @@ function animate(){
     noteMesh.position.set(0,-0.585+0.66*t,0.31+0.34*t);
     noteMesh.rotation.z=t*0.5;
     noteMesh.visible=t>0;
+  }
+  if(noteBackAnim>0){                      // 吐回：进一半再退出来
+    noteBackAnim-=0.026;
+    var tb=Math.max(0,noteBackAnim);
+    var fl = tb>0.5 ? (1-tb)*2 : tb*2;     // 0→1→0
+    noteMesh.position.set(0,-0.585+0.66*fl,0.31+0.34*fl);
+    noteMesh.rotation.z=fl*0.5;
+    noteMesh.visible=fl>0.03;
   }
   renderer.render(scene,camera);
   updateScreenUI();
