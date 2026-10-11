@@ -18,8 +18,9 @@ console.log('== 1. 语法（V8 解析发布文件里的 app JS）==');
 try { new Function(app); ok(`JS 语法，${app.length} 字符，另有 ${blocks.length - 1} 个内联引擎块`); }
 catch (e) { no('JS 语法: ' + e.message); }
 
+/* 禁用词：产品不再隐藏加密层，USDC 与「钱包地址」已按需求解禁（2026-10-11） */
 console.log('== 2. 文案禁用词（应为 0）==');
-for (const w of ['私钥', '助记词', '链上', 'USDC', '代币', '钱包地址', 'gas'])
+for (const w of ['私钥', '助记词', '链上', '代币', 'gas'])
   (src.match(new RegExp(w, 'gi')) || []).length === 0 ? ok(`${w} = 0`) : no(`${w} 出现 ${(src.match(new RegExp(w, 'gi')) || []).length} 次`);
 
 console.log('== 3. 手写序列化 vs 官方库（直接取文件里的函数）==');

@@ -114,6 +114,14 @@
   .recline{display:flex;flex-wrap:wrap;gap:3px 14px;font-size:11.5px;color:#5b6169;
     margin-top:10px;border-top:1px dashed var(--line);padding-top:9px}
   .recline b{color:var(--ink);font-weight:600}
+  /* 屏幕键盘（自助机没有物理键盘） */
+  .kb{display:flex;flex-direction:column;gap:3px;margin-top:8px}
+  .kb .kr{display:flex;gap:3px}
+  .kb .k{pointer-events:auto;cursor:pointer;flex:1;height:24px;line-height:24px;text-align:center;
+    border-radius:6px;border:1px solid var(--line);background:#fff;font-size:10.5px;font-weight:600;
+    font-family:ui-monospace,Menlo,monospace;color:var(--ink);user-select:none}
+  .kb .k:active{background:#e9edf3}
+  .kb .k.wide{flex:1.7;font-size:12px}
   .txbox{margin-top:9px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 11px}
   .txrow{display:flex;justify-content:space-between;align-items:center;font-size:10.5px}
   .txrow .sol{font-weight:800;letter-spacing:.10em;color:#7c5cff}
@@ -140,13 +148,13 @@
 
 <div class="cap">
   <h1>零钱兑换机 · 3D 演示</h1>
-  <p>外币零钱 → 稳定币直接进你的钱包 · 拖动旋转 · 滚轮缩放</p>
+  <p>外币零钱 → USDC 直接进你的钱包 · 拖动旋转 · 滚轮缩放</p>
 </div>
 
 <aside class="side">
   <div class="card">
     <h3>这是什么</h3>
-    <p>旅客把用不完的外币零钱投进去，当场换成等值稳定币，直接进他自己的钱包——不注册、不设账户、不经手保管。</p>
+    <p>旅客把用不完的外币零钱投进去，当场换成等值 USDC，直接进他自己的钱包——不注册、不设账户、不经手保管。</p>
     <p class="tags"><span class="tag">交互原型</span><span class="tag green">假数据</span></p>
   </div>
   <div class="card">
@@ -154,14 +162,14 @@
     <ol>
       <li>点 <b>开始兑换</b>，进入放钞</li>
       <li>点面额按钮，看纸币<b>滑进进钞口</b>，金额累加（只收小额）</li>
-      <li>点 <b>完成放钞</b>，扫<b>你自己钱包</b>的收款码</li>
-      <li>看处理动画，等值稳定币<b>直接进你的钱包</b>；完成页给出 Solana 交易哈希</li>
+      <li>点 <b>完成放钞</b>，输入<b>你钱包</b>的收款地址</li>
+      <li>看处理动画，等值 USDC <b>直接进你的钱包</b>；完成页给出 Solana 交易哈希</li>
     </ol>
   </div>
   <div class="card">
     <h3>演示参数</h3>
-    <div class="kv"><span>兑换通道</span><b>稳定币（演示）</b></div>
-    <div class="kv"><span>折算率</span><b>1 外币 = 1.00</b></div>
+    <div class="kv"><span>兑换通道</span><b>USDC（Solana）</b></div>
+    <div class="kv"><span>折算率</span><b>1 外币 = 1.00 USDC</b></div>
     <div class="kv"><span>手续费</span><b>2.0%</b></div>
     <div class="kv"><span>单笔上限</span><b>50 外币（只做小额）</b></div>
     <div class="kv"><span>到账</span><b>直接进旅客钱包</b></div>
@@ -384,8 +392,8 @@ function go(n){ S.step=n; applyStep3D(); render(); }
 /* 0 待机 */
 function scrIdle(){
   return '<div class="kicker">剩余零钱 · 即时兑换</div>'
-    + '<h2>把用不完的外币零钱<br>直接换成稳定币</h2>'
-    + '<p class="lead">投入纸币 → 扫你自己钱包的收款码 → 等值稳定币直接进你的钱包。免注册、免账户。</p>'
+    + '<h2>把用不完的外币零钱<br>换成 USDC 带走</h2>'
+    + '<p class="lead">投入纸币 → 输入你钱包的收款地址 → 等值 USDC 直接进你的钱包。免注册、免账户。</p>'
     + '<div class="body"></div>'
     + '<div class="foot"><button class="primary" onclick="startFlow()">开始兑换</button></div>'
     + fine();
@@ -409,20 +417,35 @@ function scrCash(){
     + '<button class="primary" '+(S.notes.length?'':'disabled')+' onclick="go(2)">完成放钞</button></div>'
     + fine();
 }
-/* 2 收款钱包（扫旅客自己的钱包收款码） */
+/* 2 收款钱包（输入旅客自己的钱包地址；屏幕键盘） */
 function scrWallet(){
   return '<div class="kicker">第 2/4 步 · 收款钱包</div>'
-    + '<h2>你钱包的收款码</h2>'
-    + '<div class="body">'
-    +   '<div class="field"><label>钱包</label><input id="wallet" placeholder="扫描或粘贴收款地址" value="'+(S.wallet||'')+'" oninput="onWalletInput(this.value)"></div>'
-    +   '<button class="ghost" style="width:100%;margin-top:10px;border:1px solid var(--line)" onclick="scanWallet()">📷 扫收款码</button>'
-    +   '<div class="note" id="walletHint">钱直接进这个钱包，不经过任何中间账户。'
-    +     '<a class="txlink" href="#" style="margin-left:6px" onclick="event.preventDefault();onWalletInput(DEMO_WALLET);render()">用演示地址</a></div>'
+    + '<h2 style="font-size:18px;margin-top:5px">输入你钱包的收款地址</h2>'
+    + '<div class="body" style="overflow:hidden;margin-top:9px">'
+    +   '<div class="field" style="margin-top:0"><input id="wallet" autocomplete="off" spellcheck="false" placeholder="输入钱包地址" value="'+(S.wallet||'')+'" oninput="onWalletInput(this.value)"></div>'
+    +   kbHtml()
+    +   '<div class="note" style="margin-top:7px">钱直接进这个钱包，不经过任何中间账户。'
+    +     '<a class="txlink" style="margin-left:6px" href="#" onclick="event.preventDefault();scanWallet()">扫码</a>'
+    +     '<a class="txlink" style="margin-left:8px" href="#" onclick="event.preventDefault();var i=$(\'wallet\');i.value=DEMO_WALLET;onWalletInput(i.value)">演示地址</a></div>'
     + '</div>'
     + '<div class="foot"><button class="ghost" onclick="go(1)">返回</button>'
-    + '<button class="primary" id="btnWallet" '+(S.walletOK?'':'disabled')+' onclick="startProc()">确认并兑换</button></div>'
+    + '<button class="primary" id="btnWallet" '+(S.walletOK?'':'disabled')+' onclick="startProc()">完成</button></div>'
     + fine();
 }
+/* base58 键盘：只给合法字符（没有 0 O I l），省得白打 */
+function kbHtml(){
+  var AB='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  var rows=[AB.slice(0,9)], i;
+  for(i=9;i<AB.length;i+=10) rows.push(AB.slice(i,i+10));
+  return '<div class="kb">'+rows.map(function(r,ri){
+    var keys='';
+    for(var j=0;j<r.length;j++) keys+='<div class="k" onclick="kbTap(\''+r[j]+'\')">'+r[j]+'</div>';
+    if(ri===rows.length-1) keys+='<div class="k wide" onclick="kbBack()">⌫</div>';
+    return '<div class="kr">'+keys+'</div>';
+  }).join('')+'</div>';
+}
+function kbTap(ch){ var i=$('wallet'); if(!i) return; i.value=(i.value||'')+ch; onWalletInput(i.value); }
+function kbBack(){ var i=$('wallet'); if(!i) return; i.value=(i.value||'').slice(0,-1); onWalletInput(i.value); }
 /* 3 处理中 */
 function scrProc(){
   return '<div class="kicker">第 3/4 步 · 兑换</div>'
@@ -444,11 +467,11 @@ function scrDone(){
   return '<div class="kicker">第 4/4 步 · 完成</div>'
     + '<div class="body" style="display:flex;flex-direction:column;justify-content:center">'
     +   '<div class="okico">✅</div>'
-    +   '<div class="big" style="margin-top:6px"><div class="n">'+amt.toFixed(2)+'<small>已进你的钱包</small></div></div>'
+    +   '<div class="big" style="margin-top:6px"><div class="n">'+amt.toFixed(2)+'<small>USDC · 已进你的钱包</small></div></div>'
     +   '<div class="recline">'
     +     '<span>收款钱包 <b>'+shortWallet(S.wallet)+'</b></span>'
     +     '<span>时间 <b>'+hh+':'+mm+'</b></span>'
-    +     '<span>兑换率 <b>1 外币 = '+RATE.toFixed(2)+'</b></span>'
+    +     '<span>兑换率 <b>1 外币 = ' + RATE.toFixed(2) + ' USDC</b></span>'
     +     '<span>手续费 <b>'+(FEE*100).toFixed(1)+'%</b></span>'
     +   '</div>'
     +   txBox(S.sigRec)
