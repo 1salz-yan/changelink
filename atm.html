@@ -107,6 +107,7 @@
     <div class="kv"><span>兑换通道</span><b>USDC（Solana）</b></div>
     <div class="kv"><span>汇率</span><b id="fxSrc">离线快照</b></div>
     <div class="kv"><span>折算率</span><b>按币种（见选币页）</b></div>
+    <div class="kv"><span>报价</span><b>锁价 30 秒</b></div>
     <div class="kv"><span>手续费</span><b>2.0%</b></div>
     <div class="kv"><span>币种</span><b>JPY/USD/EUR/KRW/THB（占位）</b></div>
     <div class="kv"><span>小额上限</span><b>按币种，如 EUR 50</b></div>
@@ -153,6 +154,28 @@
    参数（全部写死，假数据）
    ========================================================================= */
 var FEE  = 0.02;                  // 2% 手续费
+/* 报价锁价：真实找换店不是看 tick 报价，而是「挂一个价、锁一段时间」。
+   这里锁 30 秒——锁住的期间成交按这个价；过期自动按最新汇率重新报价。 */
+var QUOTE_SECS = 30;
+function lockQuote(){
+  var c = S.cur || defaultCur();
+  S.quote = { code:c.code, rate:c.fx, left:QUOTE_SECS, refreshing:false };
+}
+function fxLocked(){ return S.quote ? S.quote.rate : (S.cur ? S.cur.fx : 0); }
+function tickQuote(){
+  if(!S.quote || S.step<2 || S.step>4) return;
+  if(S.quote.refreshing) return;
+  S.quote.left--;
+  if(S.quote.left<=0){
+    S.quote.left=QUOTE_SECS; S.quote.refreshing=true;      // 先重启，避免每秒重复触发
+    toast('报价已过期，正在按最新汇率重新报价…');
+    fetchRates(function(){ lockQuote(); drawUI(); });
+    return;
+  }
+  if(S.step===2 || S.step===3) drawUI();
+}
+setInterval(tickQuote, 1000);
+
 /* 币种清单 —— 占位；fx = 1 单位该币值多少 USDC（USD）。
    fx 运行时会从 FX_API 实时抓取；抓不到网就用下面这份 ECB 离线快照，界面会标明用的是哪个。 */
 var FX_SNAPSHOT = { JPY:0.006319, USD:1.000000, EUR:1.120600, KRW:0.000745, THB:0.029824 };
@@ -434,8 +457,13 @@ function dCash(){
   T(fmt(total()), UIW/2-24, 106, 34, '#14171c', 700, 'right');
   T(c.code, UIW/2+8, 106, 13, '#8b9099', 600, 'left');
   T('已入账金额', UIW/2, 126, 10.5, '#8b9099', null, 'center');
-  T('≈ '+amount().toFixed(2)+' USDC 到账　（1 '+c.code+' = '+fmtFx(c.fx)+' USDC）', UIW/2, 146, 10.5, '#7c5cff', 700, 'center');
-  var y=168;
+  T('≈ '+amount().toFixed(2)+' USDC 到账　（1 '+c.code+' = '+fmtFx(fxLocked())+' USDC）', UIW/2, 146, 10.5, '#7c5cff', 700, 'center');
+  if(S.quote){
+    var qp=Math.max(0,Math.min(1,S.quote.left/QUOTE_SECS));
+    RR(20,154,UIW-40,4,2,'#eceef2'); RR(20,154,(UIW-40)*qp,4,2,'#ff6a2c');
+    T(S.quote.refreshing?'正在按最新汇率重新报价…':('本报价锁价 '+S.quote.left+' 秒'), 20, 170, 9.5, '#8b9099', 600);
+  }
+  var y=182;
   rowLine('验钞', S.vstate, y); y+=22;
   rowLine('已收', S.notes.length+' 张', y); y+=22;
   rowLine('已吐回', S.ejected+' 张', y); y+=22;
@@ -479,9 +507,10 @@ function dWallet(){
     ky+=27;
   });
   T('钱直接进这个钱包，不经过任何中间账户。', 20, ky+16, 10.5, '#8b9099');
-  T('扫码', 20, ky+34, 10.5, '#7c5cff', 600);  HIT(20,ky+24,32,16,scanWallet);
-  T('用演示地址', 58, ky+34, 10.5, '#7c5cff', 600);
-  HIT(58,ky+24,72,16,function(){ S.wallet=DEMO_WALLET; onWalletInput(S.wallet); });
+  if(S.quote) T('本报价锁价 '+S.quote.left+' 秒 · 1 '+S.cur.code+' = '+fmtFx(fxLocked())+' USDC', 20, ky+34, 9.5, '#8b9099', 600);
+  T('扫码', 20, ky+52, 10.5, '#7c5cff', 600);  HIT(20,ky+42,32,16,scanWallet);
+  T('用演示地址', 58, ky+52, 10.5, '#7c5cff', 600);
+  HIT(58,ky+42,72,16,function(){ S.wallet=DEMO_WALLET; onWalletInput(S.wallet); });
   Btn(20, UIH-58, 110, 40, '返回', {ghost:true, fn:function(){ go(2); }});
   Btn(140, UIH-58, UIW-160, 40, '完成', {primary:true, disabled:!S.walletOK, fn:startProc});
 }
@@ -489,8 +518,8 @@ function dProc(){
   kicker('第 4/5 步 · 兑换');
   h2('正在兑换');
   var y=76;
-  RR(20,y,UIW-40,7,99,'#eceef2');
-  RR(20,y,(UIW-40)*(S.procPct||0),7,99,'#ff6a2c');
+  RR(20,y,UIW-40,7,3,'#eceef2');
+  RR(20,y,(UIW-40)*(S.procPct||0),7,3,'#ff6a2c');
   y=112;
   ['校验收款钱包','按汇率计价','发起 Solana 转账','完成'].forEach(function(t,i){
     var doneKi=i<(S.procAt||0);
@@ -513,7 +542,7 @@ function dDone(){
   uix.beginPath(); uix.moveTo(20,186); uix.lineTo(UIW-20,186); uix.stroke(); uix.setLineDash([]);
   T('收款钱包 '+shortWallet(S.wallet), 20, 202, 11, '#5b6169', 600);
   T('时间 '+hh+':'+mm, UIW-20, 202, 11, '#5b6169', 600, 'right');
-  T('兑换率 1 '+S.cur.code+' = '+fmtFx(S.cur.fx)+' USDC', 20, 220, 11, '#5b6169', 600);
+  T('成交价 1 '+S.cur.code+' = '+fmtFx(fxLocked())+' USDC（锁价）', 20, 220, 11, '#5b6169', 600);
   T('手续费 '+(FEE*100).toFixed(1)+'%', UIW-20, 220, 11, '#5b6169', 600, 'right');
   T(FX_SRC, 20, 234, 8.5, '#b0b6be');
   /* 交易哈希框 */
@@ -535,9 +564,9 @@ function dDone(){
 var blinkOn=false;
 setInterval(function(){ blinkOn=!blinkOn; if(S.step===3) drawUI(); }, 520);
 
-function startFlow(){ S.cur=null; S.notes=[]; S.rejected=0; S.ejected=0; S.ejreason=''; S.vstate='待机'; buildNotes(); go(1); }
-function pickCur(i){ S.cur=CURRENCIES[i]; S.notes=[]; S.ejected=0; S.ejreason=''; S.vstate='待机'; buildNotes(); go(2); toast('已选 '+S.cur.code+'，把托盘上的纸币拖进进钞口'); }
-function resetAll(){ S.cur=null; S.notes=[]; S.ejected=0; S.ejreason=''; S.vstate='待机'; S.wallet=''; S.walletOK=false; buildNotes(); stopCam(); if($('camPanel')) $('camPanel').hidden=true; go(0); }
+function pickCur(i){ S.cur=CURRENCIES[i]; S.notes=[]; S.ejected=0; S.ejreason=''; S.vstate='待机'; buildNotes(); lockQuote(); go(2); toast('已选 '+S.cur.code+'，把托架上的纸币拖进进钞口'); }
+function resetAll(){ S.cur=null; S.quote=null; S.notes=[]; S.ejected=0; S.ejreason=''; S.vstate='待机'; S.wallet=''; S.walletOK=false; buildNotes(); stopCam(); if($('camPanel')) $('camPanel').hidden=true; go(0); }
+function startFlow(){ S.cur=null; S.quote=null; S.notes=[]; S.rejected=0; S.ejected=0; S.ejreason=''; S.vstate='待机'; buildNotes(); go(1); }
 function go(n){ S.step=n; applyStep3D(); drawUI(); }
 
 /* 塞钞：ok=验钞通过；fake=疑似假币；unknown=识别不了；超小额上限也算"多余" */
@@ -609,8 +638,8 @@ function solNet(rec){
   el.textContent = (!rec || rec.mode==='real') ? 'Solana devnet（真实交易）' : '离线模拟';
 }
 function total(){ return S.notes.reduce(function(a,b){return a+b;},0); }
-/* 真做币种换算：入账金额 × 该币汇率 × (1−手续费)。汇率取 ECB 官方参考汇率 */
-function amount(){ return S.cur ? total()*S.cur.fx*(1-FEE) : 0; }
+/* 真做币种换算：入账金额 × 该币汇率 × (1−手续费)。汇率取锁价时冻结的那个值 */
+function amount(){ return S.cur ? total()*fxLocked()*(1-FEE) : 0; }
 function fmtFx(v){ return v>=1 ? v.toFixed(4) : v.toFixed(6); }
 function fmt(n){ return Number(n).toLocaleString('en-US',{maximumFractionDigits:2}); }
 
