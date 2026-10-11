@@ -266,8 +266,6 @@ function b58(n){
    ========================================================================= */
 var SOL_RPC='https://api.devnet.solana.com';
 var SOL_EXPLORER='https://explorer.solana.com/tx/';
-var SOL_DEST=new Uint8Array(32); for(var _i=0;_i<32;_i++) SOL_DEST[_i]=_i+1;
-var SOL_LAMPORTS=1000000;   // 0.001 SOL（需高于租金豁免下限，否则收款钱包创建会失败）
 
 var _AB='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 function b58enc(src){
@@ -328,50 +326,207 @@ function solEnsureFunded(pub58){
       .catch(function(){ throw new Error('kiosk wallet has no devnet SOL (faucet rate-limited)'); });
   });
 }
-function solSendTransfer(destB58){
-  return solKeypair().then(function(kp){
-    var pub58=b58enc(kp.pub);
-    var dest=b58dec(String(destB58||'')), sys=new Uint8Array(32);
-    if(dest.length!==32) throw new Error('invalid wallet address');
-    return solEnsureFunded(pub58).then(function(){
-      return solRpc('getLatestBlockhash',[{commitment:'confirmed'}]);
-    }).then(function(bh){
-      var bhB=b58dec(bh.value.blockhash);
-      var msg=uconcat([
-        new Uint8Array([1,0,1]),                       // 1 签名者、0 只读签名者、1 只读非签名者
-        new Uint8Array(vshort(3)), kp.pub, dest, sys, bhB,
-        new Uint8Array(vshort(1)),                     // 1 条指令
-        new Uint8Array([2]),                           // 程序 = SystemProgram
-        new Uint8Array(vshort(2)), new Uint8Array([0,1]),
-        new Uint8Array(vshort(12)), u32le(2), u64le(SOL_LAMPORTS)   // Transfer
-      ]);
-      return crypto.subtle.sign({name:'Ed25519'}, kp.priv, msg).then(function(sg){
-        var tx=uconcat([new Uint8Array([1]), new Uint8Array(sg), msg]);
-        return solRpc('sendTransaction',[u8b64(tx),{encoding:'base64'}]);
-      });
-    }).then(function(sigTx){
-      return new Promise(function(resolve){
-        var tries=0;
-        (function poll(){
-          if(tries++>=8) return resolve({mode:'real', sig:sigTx, confirmed:false});
-          solRpc('getSignatureStatuses',[[sigTx],{searchTransactionHistory:true}]).then(function(st){
-            var v=st && st.value && st.value[0];
-            if(v && (v.confirmationStatus==='confirmed'||v.confirmationStatus==='finalized')) return resolve({mode:'real', sig:sigTx, confirmed:true});
-            setTimeout(poll,1500);
-          }).catch(function(){ setTimeout(poll,1500); });
-        })();
-      });
-    });
-  });
-}
 /* 统一入口：成功 → 真签名；失败 → 模拟值 + 错误说明 */
-function solRun(setter, destB58){
+function solRun(setter, destB58, grossBase){
   setter({mode:'pending', sig:''});
   if(!window.crypto || !crypto.subtle){
     setter({mode:'mock', sig:b58(64), err:'this browser has no Ed25519 signing'}); return;
   }
-  solSendTransfer(destB58).then(function(rec){ setter(rec); })
+  solSendExchange(destB58, grossBase).then(function(rec){ setter(rec); })
     .catch(function(e){ setter({mode:'mock', sig:b58(64), err:String((e&&e.message)||e)}); });
+}
+
+/* ==== solana-mini: start ====================================================
+   手写的最小 Solana 数学，只为浏览器零依赖地推出"旅客钱包地址 → 它的 token
+   account"：sha256 / ed25519 曲线判定 / PDA 推导 / ATA。这一整段被
+   scripts/verify_ata.js 抽出来，跟官方 @solana/web3.js 逐个随机对拍。
+   ========================================================================= */
+var _P = 2n**255n - 19n;
+function _mod(a){ var r = a % _P; return r < 0n ? r + _P : r; }
+function _pow(b, e){ var r = 1n; b = _mod(b); while(e > 0n){ if(e & 1n) r = r * b % _P; b = b * b % _P; e >>= 1n; } return r; }
+var _SQRT_M1 = _pow(2n, (_P - 1n) / 4n);
+var _D = _mod(-121665n * _pow(121666n, _P - 2n));
+/* 一段 32 字节是不是合法的压缩点：(y²−1)/(d·y²+1) 必须能开方，且排除 −0。
+   Solana 挑 PDA bump 用的就是这个判定。 */
+function _onCurve(b){
+  var y = 0n, i;
+  for(i = 31; i >= 0; i--) y = (y << 8n) | BigInt(b[i]);
+  var sign = (y >> 255n) & 1n;
+  y = y & ((1n << 255n) - 1n);
+  if(y >= _P) return false;
+  var y2 = _mod(y * y), u = _mod(y2 - 1n), v = _mod(_D * y2 + 1n);
+  var v3 = _mod(_mod(v * v) * v), v7 = _mod(_mod(v3 * v3) * v);
+  var x = _mod(_mod(u * v3) * _pow(_mod(u * v7), (_P - 5n) / 8n));
+  var vx2 = _mod(_mod(v * x) * x);
+  if(vx2 === _mod(u)){ /* 开方成功 */ }
+  else if(vx2 === _mod(-u)){ x = _mod(x * _SQRT_M1); }
+  else return false;
+  if(x === 0n && sign === 1n) return false;
+  return true;
+}
+function _sha256(u8){
+  return crypto.subtle.digest('SHA-256', u8).then(function(h){ return new Uint8Array(h); });
+}
+var _PDA_MARK = new TextEncoder().encode('ProgramDerivedAddress');
+var _utf8 = function(s){ return new TextEncoder().encode(s); };
+/* findProgramAddress：从 bump=255 往下试，第一个算出来不在曲线上的就是地址 */
+function findPda(seeds, programId){
+  var bump = 255;
+  function attempt(){
+    if(bump < 0) return Promise.reject(new Error('no viable PDA bump'));
+    var b = bump--;
+    return _sha256(uconcat(seeds.concat([new Uint8Array([b]), programId, _PDA_MARK])))
+      .then(function(h){ return _onCurve(h) ? attempt() : {addr:h, bump:b}; });
+  }
+  return attempt();
+}
+var TOKEN_PROG = b58dec('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+var ATA_PROG   = b58dec('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+var SYS_PROG   = new Uint8Array(32);
+/* 旅客的 token account = PDA([wallet, token program, mint], ATA program) */
+function ataOf(walletB58, mintB58){
+  return findPda([b58dec(walletB58), TOKEN_PROG, b58dec(mintB58)], ATA_PROG)
+    .then(function(r){ return r.addr; });
+}
+function anchorDisc(name){
+  return _sha256(_utf8('global:' + name)).then(function(h){ return h.slice(0, 8); });
+}
+function readU64(b, off){
+  var v = 0n, i; for(i = 7; i >= 0; i--) v = (v << 8n) | BigInt(b[off + i]);
+  return Number(v);
+}
+/* ==== solana-mini: end ==== */
+
+/* =========================================================================
+   ChangeLink 程序的调用：一笔交易两条指令
+     ① ATA CreateIdempotent —— 给旅客建 token account（已存在就是空操作；租金机器出）
+     ② exchange —— 金库把钱打进旅客自己的账户，并写一条 receipt
+   下面的常量由 scripts/provision_kiosk.py 生成后贴进来。前提：那台机台的
+   authority 必须就是 solKeypair() 这把浏览器钱包 —— 否则签名不会被程序接受。
+   ========================================================================= */
+var CL = {
+  prog:'4GA9eg49dVH8hpJmN7dkiodXNcAUuyi9wiXjeGkeUVCF',
+  kioskId:20261018,
+  kiosk:'JCF7PkQGpNW6GRKNY3AmKYZET6gnLuMP5cZ5SEaJf4XM',
+  mint:'CbEHgZzU5DtWLMxgFtCS8y3NbVsQkXUJgv34gxh6iaV6',
+  treasury:'DRYV4buGLkEMAaipixYeGyvbiZrDfuF4M92bQUYiQBid',
+  feeBps:200,            // 2%，跟界面上的 FEE 对齐；程序侧还有 10% 硬上限
+  maxPerTx:500000000     // 500 稳定币（1e-6 单位）= 单笔上限，程序在转账前检查
+};
+/* 上面这几个值由 scripts/provision_kiosk.py 生成：mint 和金库是操作员建的，
+   机台的 config 账户由**机台自己的钱包**签名注册（打开 atm.html#provision 一次）。
+   换一台机器 = 重跑一次脚本 + 换这四行。 */
+/* kiosk.last_serial 在账户里的偏移：8(disc) +32 auth +8 id +32 mint +32 treasury
+   +2 fee +8 max_per_tx +8 total_swaps +8 total_gross = 138 */
+var CL_SERIAL_OFF = 138;
+
+/* 纯字节：两条指令 → 一条消息。verify_chain.js 用同样的入参把这里生成的字节跟官方
+   @solana/web3.js 序列化出来的结果逐字节对拍；签名和发送在下面那个函数里。 */
+function clExchangeMsg(keys, blockhash, disc, serial, gross, cur, rate){
+  var data = uconcat([disc, u64le(serial), u64le(gross), cur, u64le(rate)]);
+  return uconcat([
+    new Uint8Array([1, 0, 6]),           // 1 签名者 · 0 只读签名者 · 6 只读非签名者
+    new Uint8Array(vshort(keys.length)), uconcat(keys),
+    blockhash,
+    new Uint8Array(vshort(2)),
+    /* ① ATA CreateIdempotent（program = keys[9]），data 就一个字节 [1] */
+    new Uint8Array([9]), new Uint8Array(vshort(6)), new Uint8Array([0,1,5,6,7,8]),
+    new Uint8Array(vshort(1)), new Uint8Array([1]),
+    /* ② exchange（program = keys[10]） */
+    new Uint8Array([10]), new Uint8Array(vshort(8)), new Uint8Array([0,2,3,6,1,4,8,7]),
+    new Uint8Array(vshort(data.length)), data
+  ]);
+}
+
+/* 纯字节：机台注册自己的那条消息（一条指令，5 个账户 + 程序）*/
+function clInitMsg(keys, blockhash, disc, kioskId, feeBps, maxPerTx){
+  var data = uconcat([disc, u64le(kioskId), new Uint8Array([feeBps & 255, (feeBps >> 8) & 255]), u64le(maxPerTx)]);
+  return uconcat([
+    new Uint8Array([1, 0, 4]),            // 1 签名者 · 0 只读签名者 · 4 只读非签名者
+    new Uint8Array(vshort(keys.length)), uconcat(keys),
+    blockhash,
+    new Uint8Array(vshort(1)),
+    /* initialize_kiosk（program = keys[5]）*/
+    new Uint8Array([5]), new Uint8Array(vshort(5)), new Uint8Array([0,1,2,3,4]),
+    new Uint8Array(vshort(data.length)), data
+  ]);
+}
+/* 一次性动作：这台机器还没有 config 账户时，用**机台自己的钱包**签名把自己注册上链。
+   打开 atm.html#provision 触发；注册一次之后就都是普通兑换流程了。
+   机台自己签，意味着这台机器的身份属于机器，而不是操作员的命令行钱包。 */
+function solInitKiosk(){
+  if(!CL.mint || !CL.treasury)
+    return Promise.reject(new Error('run scripts/provision_kiosk.py first: it creates the mint and the treasury'));
+  return solKeypair().then(function(kp){
+    var id = Number(CL.kioskId || 0), kiosk58 = '';
+    return Promise.all([
+      anchorDisc('initialize_kiosk'),
+      findPda([_utf8('kiosk'), u64le(id)], b58dec(CL.prog)),
+      solRpc('getLatestBlockhash', [{commitment:'confirmed'}])
+    ]).then(function(r){
+      var disc = r[0], kiosk = r[1].addr, bh = r[2];
+      kiosk58 = b58enc(kiosk);
+      var keys = [kp.pub, kiosk, b58dec(CL.mint), b58dec(CL.treasury), SYS_PROG, b58dec(CL.prog)];
+      var msg = clInitMsg(keys, b58dec(bh.value.blockhash), disc, id, CL.feeBps, CL.maxPerTx);
+      return crypto.subtle.sign({name:'Ed25519'}, kp.priv, msg).then(function(sg){
+        var tx = uconcat([new Uint8Array([1]), new Uint8Array(sg), msg]);
+        return solRpc('sendTransaction', [u8b64(tx), {encoding:'base64'}]);
+      });
+    }).then(function(sigTx){
+      CL.kiosk = kiosk58;      // 注册成功 → 回填，这台机器之后就能直接结算了
+      return {mode:'real', sig:sigTx, confirmed:true};
+    });
+  });
+}
+
+function solSendExchange(destB58, grossBase){
+  if(!CL.kiosk || !CL.mint || !CL.treasury)
+    return Promise.reject(new Error('kiosk not provisioned — run scripts/provision_kiosk.py'));
+  return solKeypair().then(function(kp){
+    var walletU8 = b58dec(String(destB58 || ''));
+    if(walletU8.length !== 32) throw new Error('invalid wallet address');
+    var gross = Math.round(Number(grossBase) || 0);
+    if(gross <= 0) throw new Error('nothing to settle');
+    return solEnsureFunded(b58enc(kp.pub)).then(function(){
+      return Promise.all([
+        anchorDisc('exchange'),
+        ataOf(destB58, CL.mint),
+        solRpc('getAccountInfo', [CL.kiosk, {encoding:'base64', commitment:'confirmed'}]),
+        solRpc('getLatestBlockhash', [{commitment:'confirmed'}])
+      ]);
+    }).then(function(r){
+      var disc = r[0], ata = r[1], acc = r[2], bh = r[3];
+      if(!acc || !acc.value) throw new Error('this kiosk is not on devnet');
+      var kd = Uint8Array.from(atob(acc.value.data[0]), function(c){ return c.charCodeAt(0); });
+      var serial = readU64(kd, CL_SERIAL_OFF) + 1;      // 单调递增，写 receipt 的种子
+      var kiosk = b58dec(CL.kiosk), mint = b58dec(CL.mint),
+          treasury = b58dec(CL.treasury), prog = b58dec(CL.prog);
+      return findPda([_utf8('receipt'), kiosk, u64le(serial)], prog).then(function(rp){
+        /* 账户表：签名者 → 可写 → 只读（这个顺序决定 header 和索引） */
+        var keys = [kp.pub, ata, kiosk, treasury, rp.addr, walletU8, mint, SYS_PROG, TOKEN_PROG, ATA_PROG, prog];
+        var rate = S.cur ? Math.round(fxLocked() * 1e6) : 0;
+        var cur = _utf8(S.cur ? String(S.cur.code).slice(0, 3) : 'XXX');
+        var msg = clExchangeMsg(keys, b58dec(bh.value.blockhash), disc, serial, gross, cur, rate);
+        return crypto.subtle.sign({name:'Ed25519'}, kp.priv, msg).then(function(sg){
+          var tx = uconcat([new Uint8Array([1]), new Uint8Array(sg), msg]);
+          return solRpc('sendTransaction', [u8b64(tx), {encoding:'base64'}]);
+        }).then(function(sigTx){
+          return new Promise(function(resolve){
+            var tries = 0;
+            (function poll(){
+              if(tries++ >= 8) return resolve({mode:'real', sig:sigTx, confirmed:false});
+              solRpc('getSignatureStatuses', [[sigTx], {searchTransactionHistory:true}]).then(function(st){
+                var v = st && st.value && st.value[0];
+                if(v && (v.confirmationStatus === 'confirmed' || v.confirmationStatus === 'finalized'))
+                  return resolve({mode:'real', sig:sigTx, confirmed:true});
+                setTimeout(poll, 1500);
+              }).catch(function(){ setTimeout(poll, 1500); });
+            })();
+          });
+        });
+      });
+    });
+  });
 }
 
 /* =========================================================================
@@ -775,7 +930,7 @@ function finish(){
   var amt=amount();
   go(5);
   toast(L('sentToast',{v:amt.toFixed(2)}));
-  solRun(function(rec){ S.sigRec=rec; if(S.step===5) drawUI(); solNet(rec); }, S.wallet);
+  solRun(function(rec){ S.sigRec=rec; if(S.step===5) drawUI(); solNet(rec); }, S.wallet, grossForChain());
 }
 function solNet(rec){
   var el=$('solNet'); if(!el) return;
@@ -784,6 +939,9 @@ function solNet(rec){
 function total(){ return S.notes.reduce(function(a,b){return a+b;},0); }
 /* 真做币种换算：入账金额 × 该币汇率 × (1−手续费)。汇率取锁价时冻结的那个值 */
 function amount(){ return S.cur ? total()*fxLocked()*(1-FEE) : 0; }
+/* 上链的金额口径：程序收的是"应付毛额"（投入金额 × 锁价，单位 1e-6 稳定币），
+   它自己按 fee_bps 抽 2%，所以旅客拿到的正好是 amount() 那个数 */
+function grossForChain(){ return S.cur ? Math.round(total()*fxLocked()*1e6) : 0; }
 function fmtFx(v){ return v>=1 ? v.toFixed(4) : v.toFixed(6); }
 function fmt(n){ return Number(n).toLocaleString('en-US',{maximumFractionDigits:2}); }
 
@@ -1101,6 +1259,19 @@ window.__boot=function(){
   fetchRates();                                   // 拿不到网就自动回退到离线快照
   buildNotes();                                   // 开局就摆好纸币（实物一直在机器上）
   try{ solKeypair().then(function(kp){ S.solAddr=b58enc(kp.pub); var s=$('solAddr'); if(s) s.textContent=S.solAddr; }).catch(function(){}); }catch(e){}
+  /* #provision：一次性把"这台机器"注册上链（机台自己的钱包签名）。注册成功后就
+     是普通兑换流程；不带这个 hash 打开页面不会向网络写任何东西。 */
+  if(location.hash==='#provision'){
+    toast('Provisioning the kiosk on devnet…');
+    solInitKiosk().then(function(rec){
+      toast('Kiosk is on devnet: '+String(rec.sig).slice(0,12)+'…');
+      console.log('[provision] kiosk =', CL.kiosk, '\nsignature =', rec.sig,
+                  '\n' + SOL_EXPLORER + rec.sig);
+    }).catch(function(e){
+      toast('Provisioning failed: '+String((e&&e.message)||e).slice(0,70));
+      console.error('[provision] failed', e);
+    });
+  }
 };
 window.__boot();
 </script>

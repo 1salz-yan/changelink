@@ -45,29 +45,32 @@ try {
   vm.createContext(sb);
   try { vm.runInContext(app, sb); } catch (e) { console.log('    · vm 预执行中断(可忽略): ' + e.message); }
 
-  const { b58enc, vshort, u32le, u64le, uconcat, SOL_DEST, SOL_LAMPORTS } = sb;
+  const { b58enc, vshort, u32le, u64le, uconcat } = sb;
   if (![b58enc, vshort, u32le, u64le, uconcat].every(f => typeof f === 'function'))
     throw new Error('未能从 atm.html 取出序列化函数');
 
   const from = Keypair.generate();
+  // 固定夹具：这里验的是"发布文件里那几个序列化函数"跟官方库是否一致，
+  // 用一组常量就够，不必依赖应用里任何业务常量。
+  const FIXTURE_DEST = new Uint8Array(32); for (let i = 0; i < 32; i++) FIXTURE_DEST[i] = i + 1;
+  const FIXTURE_LAMPORTS = 1000000;
   console.log('    · web3.js', require('@solana/web3.js/package.json').version,
-    '| helpers:', ['b58enc', 'vshort', 'u32le', 'u64le', 'uconcat'].map(k => typeof sb[k]).join('/'),
-    '| SOL_DEST:', sb.SOL_DEST && sb.SOL_DEST.length, '| SOL_LAMPORTS:', sb.SOL_LAMPORTS);
+    '| helpers:', ['b58enc', 'vshort', 'u32le', 'u64le', 'uconcat'].map(k => typeof sb[k]).join('/'));
   b58enc(new Uint8Array(from.publicKey.toBytes())) === from.publicKey.toBase58()
     ? ok('b58enc 与官方 PublicKey.toBase58 一致') : no('b58enc 与官方不一致');
 
   const bhBytes = Buffer.from(Array.from({ length: 32 }, (_, i) => 255 - i));
   const tx = new Transaction({ recentBlockhash: b58enc(new Uint8Array(bhBytes)), feePayer: from.publicKey });
-  tx.add(SystemProgram.transfer({ fromPubkey: from.publicKey, toPubkey: new PublicKey(Buffer.from(SOL_DEST)), lamports: SOL_LAMPORTS }));
+  tx.add(SystemProgram.transfer({ fromPubkey: from.publicKey, toPubkey: new PublicKey(Buffer.from(FIXTURE_DEST)), lamports: FIXTURE_LAMPORTS }));
 
   const sys = new Uint8Array(32);
   const myMsg = Buffer.from(uconcat([
     new Uint8Array([1, 0, 1]),
-    new Uint8Array(vshort(3)), new Uint8Array(from.publicKey.toBytes()), new Uint8Array(SOL_DEST), sys, new Uint8Array(bhBytes),
+    new Uint8Array(vshort(3)), new Uint8Array(from.publicKey.toBytes()), new Uint8Array(FIXTURE_DEST), sys, new Uint8Array(bhBytes),
     new Uint8Array(vshort(1)),
     new Uint8Array([2]),
     new Uint8Array(vshort(2)), new Uint8Array([0, 1]),
-    new Uint8Array(vshort(12)), u32le(2), u64le(SOL_LAMPORTS),
+    new Uint8Array(vshort(12)), u32le(2), u64le(FIXTURE_LAMPORTS),
   ]));
   Buffer.compare(myMsg, tx.serializeMessage()) === 0 ? ok('message 与官方 serializeMessage() 逐字节一致') : no('message 与官方不一致');
 
