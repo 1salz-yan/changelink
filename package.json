@@ -1,0 +1,12 @@
+{
+  "name": "changelink",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ChangeLink — leftover foreign cash to stablecoin, on Solana. Single-file 3D kiosk prototype.",
+  "scripts": {
+    "test": "node verify.js"
+  },
+  "devDependencies": {
+    "@solana/web3.js": "^1"
+  }
+}
