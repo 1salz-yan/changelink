@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>零钱兑换机 · 3D 演示原型</title>
+<title>ChangeLink · kiosk demo — leftover cash to USDC</title>
 <style>
   :root{
     --ink:#14171c; --sub:#8b9099; --line:#e7e9ee; --bg:#f7f8fa;
@@ -82,63 +82,63 @@
 <canvas id="scene"></canvas>
 
 <div class="cap">
-  <h1>零钱兑换机 · 3D 演示</h1>
-  <p>外币零钱 → USDC 直接进你的钱包 · 拖动旋转 · 滚轮缩放</p>
+  <h1>ChangeLink · kiosk demo</h1>
+  <p>Leftover foreign notes → USDC straight into your wallet　·　drag to rotate　·　scroll to zoom</p>
 </div>
 
 <aside class="side">
   <div class="card">
-    <h3>这是什么</h3>
-    <p>旅客把用不完的外币零钱投进去，当场换成等值 USDC，直接进他自己的钱包——不注册、不设账户、不经手保管。</p>
-    <p class="tags"><span class="tag">交互原型</span><span class="tag green">假数据</span></p>
+    <h3>What this is</h3>
+    <p>Travellers feed in the foreign notes they can no longer spend; the machine verifies each one and sends the same value as USDC <b>straight to their own wallet</b> — no sign-up, no account, no custody.</p>
+    <p class="tags"><span class="tag">interactive prototype</span><span class="tag green">demo data</span></p>
   </div>
   <div class="card">
-    <h3>怎么玩</h3>
+    <h3>How to drive it</h3>
     <ol>
-      <li>点 <b>开始兑换</b>，先选币种</li>
-      <li>把纸币放进进钞口，机器<b>逐张验钞</b></li>
-      <li><b>假币 / 识别不了的 / 超出小额的，当场吐回</b></li>
-      <li>用屏幕键盘输入你钱包的收款地址</li>
-      <li>等值 USDC 直接进你的钱包；完成页给出 Solana 交易哈希</li>
+      <li>Press <b>Start</b> and pick a currency</li>
+      <li>Drag a note from the rack into the intake slot — <b>each note is verified</b></li>
+      <li><b>Counterfeit / unrecognised / over-cap notes are ejected on the spot</b></li>
+      <li>Type your wallet address on the on-screen base58 keyboard</li>
+      <li><b>Confirm the quote</b> (rate locked for 30s) → USDC goes to your wallet; the done screen shows the Solana hash</li>
     </ol>
   </div>
   <div class="card">
-    <h3>演示参数</h3>
-    <div class="kv"><span>兑换通道</span><b>USDC（Solana）</b></div>
-    <div class="kv"><span>汇率</span><b id="fxSrc">离线快照</b></div>
-    <div class="kv"><span>折算率</span><b>按币种（见选币页）</b></div>
-    <div class="kv"><span>报价</span><b>锁价 30 秒（含演示波动）</b></div>
-    <div class="kv"><span>手续费</span><b>2.0%</b></div>
-    <div class="kv"><span>币种</span><b>JPY/USD/EUR/KRW/THB（占位）</b></div>
-    <div class="kv"><span>小额上限</span><b>按币种，如 EUR 50</b></div>
-    <div class="kv"><span>吐回</span><b>假币 / 识别不了 / 超上限</b></div>
-    <div class="kv"><span>到账</span><b>直接进旅客钱包</b></div>
-    <div class="kv"><span>网络</span><b id="solNet">Solana devnet</b></div>
+    <h3>Demo parameters</h3>
+    <div class="kv"><span>Settlement asset</span><b>USDC (Solana)</b></div>
+    <div class="kv"><span>Rate</span><b id="fxSrc">offline snapshot</b></div>
+    <div class="kv"><span>Rate basis</span><b>per currency (see step 1)</b></div>
+    <div class="kv"><span>Quote</span><b>locked 30s (with demo drift)</b></div>
+    <div class="kv"><span>Fee</span><b>2.0%</b></div>
+    <div class="kv"><span>Currencies</span><b>JPY/USD/EUR/KRW/THB (placeholder)</b></div>
+    <div class="kv"><span>Cap</span><b>per currency, e.g. EUR 50</b></div>
+    <div class="kv"><span>Ejected</span><b>counterfeit / unrecognised / over cap</b></div>
+    <div class="kv"><span>Settlement</span><b>straight to the traveller's wallet</b></div>
+    <div class="kv"><span>Network</span><b id="solNet">Solana devnet</b></div>
   </div>
   <div class="card">
-    <h3>钱包</h3>
-    <div class="kv"><span>旅客收款钱包</span><b id="cardWallet">—</b></div>
-    <div class="kv"><span>本机钱包（付手续费）</span><b id="solAddr" style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px">生成中…</b></div>
+    <h3>Wallets</h3>
+    <div class="kv"><span>Traveller's wallet</span><b id="cardWallet">—</b></div>
+    <div class="kv"><span>Kiosk wallet (pays the fee)</span><b id="solAddr" style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px">generating…</b></div>
     <div style="margin-top:7px;display:flex;gap:12px">
-      <a class="txlink" href="#" onclick="event.preventDefault();navigator.clipboard&&navigator.clipboard.writeText(S.solAddr||'')">复制本机地址</a>
-      <a class="txlink" target="_blank" rel="noopener" href="https://faucet.solana.com">领测试币 ↗</a>
+      <a class="txlink" href="#" onclick="event.preventDefault();navigator.clipboard&&navigator.clipboard.writeText(S.solAddr||'')">Copy kiosk address</a>
+      <a class="txlink" target="_blank" rel="noopener" href="https://faucet.solana.com">Get devnet SOL ↗</a>
     </div>
   </div>
 </aside>
 
 <div class="camPanel" id="camPanel" hidden>
-  <div class="camhead"><span class="led" id="camLed"></span>摄像头 · 扫二维码</div>
+  <div class="camhead"><span class="led" id="camLed"></span>Camera · scan the receive code</div>
   <div class="camview" id="camview">
     <video id="video" playsinline muted></video>
     <div class="ret"><i></i><i></i><i></i><i></i></div>
     <div class="laser"></div>
   </div>
-  <div class="camfoot" id="camFoot">待机</div>
+  <div class="camfoot" id="camFoot">Idle</div>
 </div>
 
-<div class="hintbar">拖动 = 旋转机器　·　滚轮 = 缩放　·　点机身进钞口 = 放入现金</div>
+<div class="hintbar">drag = rotate the machine　·　scroll = zoom　·　drag a note from the rack into the slot</div>
 <div class="toast" id="toast"></div>
-<div id="loadErr">3D 引擎未能初始化。请用 Chrome / Safari 打开本文件。</div>
+<div id="loadErr">The 3D engine failed to initialise. Please open this file in Chrome or Safari.</div>
 
 <script>
 /* three.js r128 — 内联，离线可用 */
@@ -172,38 +172,38 @@ function applyJitter(){
 }
 function lockQuote(){
   var c = S.cur || defaultCur();
-  S.quote = { code:c.code, rate:c.fx, left:QUOTE_SECS, refreshing:false, note:'', noteT:0 };
+  S.quote = { code:c.code, rate:c.fx, left:QUOTE_SECS, refreshing:false, noteK:'', noteArgs:null, noteT:0 };
 }
 function fxLocked(){ return S.quote ? S.quote.rate : (S.cur ? S.cur.fx : 0); }
 function tickQuote(){
   if(!S.quote || S.step<2 || S.step>4) return;
-  if(S.quote.refreshing) return;
+  if(S.quote.refreshing || S.procRunning) return;      // 发送中不重新报价：成交按已锁的价
   S.quote.left--;
   if(S.quote.left<=0){
     S.quote.left=QUOTE_SECS; S.quote.refreshing=true;      // 先重启，避免每秒重复触发
     var old=S.quote.rate;
-    toast('报价已过期，正在重新报价…');
+    toast(L('quoteExpired'));
     fetchRates(function(){
       if(DEMO_FX_JITTER) applyJitter();
       var nw=(S.cur?S.cur.fx:old);
       lockQuote();
-      S.quote.note = (Math.abs(nw-old)<1e-9) ? '已重新报价（汇率未变）'
-                                             : ('已重新报价  '+fmtFx(old)+'  →  '+fmtFx(nw));
+      if(Math.abs(nw-old)<1e-9){ S.quote.noteK='quoteSame'; S.quote.noteArgs=null; }
+      else { S.quote.noteK='quoteNew'; S.quote.noteArgs={a:fmtFx(old), b:fmtFx(nw)}; }
       S.quote.noteT = Date.now()+6000;
       drawUI();
     });
     return;
   }
-  if(S.step===2 || S.step===3) drawUI();
+  if(S.step===2 || S.step===3 || S.step===4) drawUI();
 }
 setInterval(tickQuote, 1000);
 
 /* 币种清单 —— 占位；base = 抓到的原始汇率，fx = base×(1+演示波动)。
    fx 运行时会从 FX_API 实时抓取；抓不到网就用下面这份 ECB 离线快照，界面会标明用的是哪个。 */
 var FX_SNAPSHOT = { JPY:0.006319, USD:1.000000, EUR:1.120600, KRW:0.000745, THB:0.029824 };
-var FX_SNAP_SRC = 'ECB 参考汇率 · 2026-10-09';
+var FX_SNAP_SRC = 'ECB reference rates · 2026-10-09';
 var FX_API = 'https://open.er-api.com/v6/latest/USD';
-var FX_SRC = '离线快照 · ' + FX_SNAP_SRC;
+var FX_SRC = 'offline snapshot · ' + FX_SNAP_SRC;
 var FX_LIVE = false;
 var CURRENCIES = [
   { code:'JPY', name:'日元', base:FX_SNAPSHOT.JPY, fx:FX_SNAPSHOT.JPY, notes:[1000,5000,10000],       cap:10000 },
@@ -221,34 +221,33 @@ function fetchRates(cb){
   try{ ctl=new AbortController(); tid=setTimeout(function(){ ctl.abort(); }, 12000); }catch(e){}   // 卡住也要落地
   fetch(FX_API, ctl?{signal:ctl.signal}:undefined).then(function(r){ return r.json(); }).then(function(j){
     if(tid) clearTimeout(tid);
-    if(!j || j.result!=='success' || !j.rates) throw new Error('响应异常');
+    if(!j || j.result!=='success' || !j.rates) throw new Error('bad response');
     CURRENCIES.forEach(function(c){
       var v=j.rates[c.code];
       if(v>0){ c.base = 1/v; c.fx = c.base; }     // API 给的是 1 USD = X，转成 1 X = ? USD
     });
     FX_LIVE = true; FX_STATE='live';
-    FX_SRC = '实时抓取（汇率日 ' + String(j.time_last_update_utc||'').slice(5,16) + '）';
+    FX_SRC = 'live fetch (rate date ' + String(j.time_last_update_utc||'').slice(5,16) + ')';
     applyFxLabels();
     if(cb) cb(true);
   }).catch(function(){
     if(tid) clearTimeout(tid);
     CURRENCIES.forEach(function(c){ c.base = FX_SNAPSHOT[c.code]; c.fx = c.base; });
     FX_LIVE = false; FX_STATE='snap';
-    FX_SRC = '离线快照 · ' + FX_SNAP_SRC;
+    FX_SRC = 'offline snapshot · ' + FX_SNAP_SRC;
     applyFxLabels();
     if(cb) cb(false);
   });
 }
 function applyFxLabels(){
   var el=$('fxSrc');
-  if(el) el.textContent = FX_STATE==='loading' ? '获取中…' : (FX_LIVE ? '实时 · 已获取' : '离线快照 · 未联网');
+  if(el) el.textContent = FX_STATE==='loading' ? L('curFetching') : (FX_LIVE ? L('curLive') : L('curOffline'));
   if(S.step===1 || S.step===5) drawUI();
 }
-var DEMO_WALLET = 'GTmwnfKmSKVdE2KE5yVNuhWU7qEJtMcR8HM4Q1TRDRrW';   // 演示用收款钱包
-var FINE1 = '只做小额兑换 · 免注册、不设账户、不代保管资金';
-var FINE2 = '服务范围：日本 / 德国 / 土耳其 / 东南亚（不含中国内地）';
+var DEMO_WALLET = 'GTmwnfKmSKVdE2KE5yVNuhWU7qEJtMcR8HM4Q1TRDRrW';   // demo receiving wallet
 
-var S = { step:0, cur:null, notes:[], wallet:'', walletOK:false, sigRec:null, rejected:0, vstate:'待机', verifying:false };
+var S = { step:0, cur:null, notes:[], wallet:'', walletOK:false, sigRec:null, rejected:0,
+          vstate:'idle', verifying:false, ejreason:null, procRunning:false, ref:null };
 var $ = function(id){ return document.getElementById(id); };
 
 /* =========================================================================
@@ -326,14 +325,14 @@ function solEnsureFunded(pub58){
     if(b && b.value >= 2000000) return true;                   // 够转一笔就不动
     return solRpc('requestAirdrop',[pub58,1000000000])
       .then(function(){ return new Promise(function(r){ setTimeout(r,6000); }); })
-      .catch(function(){ throw new Error('本机钱包缺测试币（空投被限流）'); });
+      .catch(function(){ throw new Error('kiosk wallet has no devnet SOL (faucet rate-limited)'); });
   });
 }
 function solSendTransfer(destB58){
   return solKeypair().then(function(kp){
     var pub58=b58enc(kp.pub);
     var dest=b58dec(String(destB58||'')), sys=new Uint8Array(32);
-    if(dest.length!==32) throw new Error('收款钱包无效');
+    if(dest.length!==32) throw new Error('invalid wallet address');
     return solEnsureFunded(pub58).then(function(){
       return solRpc('getLatestBlockhash',[{commitment:'confirmed'}]);
     }).then(function(bh){
@@ -369,19 +368,112 @@ function solSendTransfer(destB58){
 function solRun(setter, destB58){
   setter({mode:'pending', sig:''});
   if(!window.crypto || !crypto.subtle){
-    setter({mode:'mock', sig:b58(64), err:'本浏览器不支持 Ed25519 签名'}); return;
+    setter({mode:'mock', sig:b58(64), err:'this browser has no Ed25519 signing'}); return;
   }
   solSendTransfer(destB58).then(function(rec){ setter(rec); })
     .catch(function(e){ setter({mode:'mock', sig:b58(64), err:String((e&&e.message)||e)}); });
 }
 
 /* =========================================================================
-   屏幕 UI —— 直接画成贴图贴在 3D 屏幕上（不用 DOM 浮层，任何浏览器/DPR 都不会错位）
+   Screen UI — drawn as a texture onto the 3D screen, so it is part of the
+   machine and cannot drift on any browser or DPR. No DOM overlay.
+   Bilingual: English (default, for the submission) / 中文.
    ========================================================================= */
-var UIW=380, UIH=442, SK=2;              // 逻辑尺寸 & 贴图超采样倍数
+var UIW=380, UIH=442, SK=2;              // logical size & texture supersampling
 var uiCv=null, uix=null, uiTex=null, hits=[];
-var FONT='-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",Arial,sans-serif';
+var FONT='-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif';
 var MONO='ui-monospace,Menlo,monospace';
+var LANG='en';
+
+/* ---- strings ---- */
+var T_={
+en:{
+ step1:'Step 1 of 5 · Currency', step2:'Step 2 of 5 · Notes', step3:'Step 3 of 5 · Wallet',
+ step4:'Step 4 of 5 · Confirm', step5:'Step 5 of 5 · Done',
+ back:'Back', cancel:'Cancel', next:'Next', done:'Done',
+ idleKick:'Leftover change · instant', idleH1:'Turn leftover foreign notes', idleH2:'into USDC in your wallet',
+ idleL1:'Insert notes → enter your own wallet address', idleL2:'USDC arrives in your wallet. No sign-up, no account.',
+ start:'Start',
+ curTitle:'Choose your currency', curRefresh:'Refresh rates',
+ curLive:'live · fetched', curOffline:'offline snapshot', curFetching:'fetching…',
+ cashTitle:'Insert your notes', cashInserted:'Inserted',
+ cashWillGet:'≈ {v} USDC to your wallet', cashRate:'1 {c} = {r} USDC',
+ vIdle:'Idle', vChecking:'Checking…', vPass:'Passed', vFail:'Counterfeit?', vUnknown:'Unrecognised', vOver:'Over cap',
+ rowVerify:'Note check', rowIn:'Accepted', rowOut:'Returned', rowCap:'Small-amount cap',
+ dragHint:'Drag a note from the rack into the slot',
+ ejFake:'counterfeit', ejUnknown:'unrecognised', ejOver:'over the small-amount cap',
+ ejected:'↩ Returned: {r}',
+ quoteLeft:'Quote locked · {n}s', quoteExpired:'Quote expired · re-quoting…',
+ quoteSame:'Re-quoted (rate unchanged)', quoteNew:'Re-quoted {a} → {b}',
+ okToast:'Verified · {v} {c}', sentToast:'Sent {v} USDC to your wallet',
+ pickedToast:'{c} selected — drag a note into the slot',
+ errPick:'Pick a currency first', walletRead:'Wallet address read',
+ demoJitter:'demo: simulated market move',
+ walTitle:'Enter your wallet address', walPh:'Wallet address',
+ walNote:'The money goes straight to this wallet, with no account in between.',
+ walScan:'Scan QR', walDemo:'Use demo address',
+ cfTitle:'Confirm the exchange',
+ cfGive:'You insert', cfGet:'You receive', cfRate:'Rate (locked)', cfFee:'Fee', cfTo:'To wallet',
+ cfValid:'This quote is valid for {n}s', cfNote:'USDC is sent straight to your wallet. Nothing is held.',
+ cfGo:'Confirm & send',
+ prTitle:'Exchanging…', pr1:'Checking wallet address', pr2:'Pricing at the locked rate',
+ pr3:'Sending on Solana', pr4:'Done', prBusy:'Working…',
+ dnTitle:'Done', dnSent:'USDC · sent to your wallet',
+ dnWallet:'To wallet', dnTime:'Time', dnRate:'Settled rate', dnFee:'Fee', dnRef:'Reference', dnAgain:'Start over',
+ solDevnet:'◎ SOLANA · DEVNET', solPend:'◎ SOLANA · SENDING', solMock:'◎ SOLANA · SIMULATED',
+ stConf:'Confirmed', stSent:'Sent', stMock:'Simulated',
+ mockNote:'Not on devnet — simulated value used',
+ fine1:'Small amounts only · no sign-up, no account, no custody',
+ fine2:'Japan / Germany / Turkey / Southeast Asia (not mainland China)'
+},
+zh:{
+ step1:'第 1/5 步 · 选币种', step2:'第 2/5 步 · 放钞', step3:'第 3/5 步 · 收款钱包',
+ step4:'第 4/5 步 · 确认', step5:'第 5/5 步 · 完成',
+ back:'返回', cancel:'取消', next:'下一步', done:'完成',
+ idleKick:'剩余零钱 · 即时兑换', idleH1:'把用不完的外币零钱', idleH2:'换成 USDC 进你钱包',
+ idleL1:'投入纸币 → 输入你钱包的收款地址', idleL2:'等值 USDC 直接进你的钱包。免注册、免账户。',
+ start:'开始兑换',
+ curTitle:'选择要兑换的币种', curRefresh:'刷新汇率',
+ curLive:'实时 · 已获取', curOffline:'离线快照', curFetching:'获取中…',
+ cashTitle:'请放入现钞', cashInserted:'已入账金额',
+ cashWillGet:'≈ {v} USDC 到账', cashRate:'1 {c} = {r} USDC',
+ vIdle:'待机', vChecking:'验钞中…', vPass:'通过', vFail:'未通过', vUnknown:'无法识别', vOver:'超出上限',
+ rowVerify:'验钞', rowIn:'已收', rowOut:'已吐回', rowCap:'小额上限',
+ dragHint:'把托架上的纸币拖进进钞口',
+ ejFake:'疑似假币', ejUnknown:'无法识别', ejOver:'超出小额上限（只做小额）',
+ ejected:'↩ 已吐回：{r}',
+ quoteLeft:'本报价锁价 · {n} 秒', quoteExpired:'报价已过期 · 正在重新报价…',
+ quoteSame:'已重新报价（汇率未变）', quoteNew:'已重新报价 {a} → {b}',
+ okToast:'验钞通过 · 已入账 {v} {c}', sentToast:'已转出 {v} USDC → 你的钱包',
+ pickedToast:'已选 {c}，把托架上的纸币拖进进钞口',
+ errPick:'请先选币种', walletRead:'已读取收款钱包',
+ demoJitter:'演示：模拟行情波动',
+ walTitle:'输入你钱包的收款地址', walPh:'输入钱包地址',
+ walNote:'钱直接进这个钱包，不经过任何中间账户。',
+ walScan:'扫码', walDemo:'用演示地址',
+ cfTitle:'确认这笔兑换',
+ cfGive:'你投入', cfGet:'你收到', cfRate:'成交汇率（锁价）', cfFee:'手续费', cfTo:'收款钱包',
+ cfValid:'本报价 {n} 秒内有效', cfNote:'USDC 直接进你的钱包，我们不代保管。',
+ cfGo:'确认并兑换',
+ prTitle:'正在兑换', pr1:'校验收款钱包', pr2:'按锁价计价', pr3:'发起 Solana 转账', pr4:'完成', prBusy:'处理中…',
+ dnTitle:'完成', dnSent:'USDC · 已进你的钱包',
+ dnWallet:'收款钱包', dnTime:'时间', dnRate:'成交价', dnFee:'手续费', dnRef:'凭证号', dnAgain:'再兑一笔',
+ solDevnet:'◎ SOLANA · DEVNET', solPend:'◎ SOLANA · 提交中', solMock:'◎ SOLANA · 模拟',
+ stConf:'已确认', stSent:'已提交', stMock:'模拟',
+ mockNote:'未接入 devnet，已用模拟值',
+ fine1:'只做小额兑换 · 免注册、不设账户、不代保管资金',
+ fine2:'服务范围：日本 / 德国 / 土耳其 / 东南亚（不含中国内地）'
+}};
+function L(k,o){
+  var s=(T_[LANG]&&T_[LANG][k])||T_.en[k]||k;
+  if(o) s=String(s).replace(/\{(\w+)\}/g,function(m,p){ return o[p]!==undefined?o[p]:''; });
+  return s;
+}
+/* 状态存的是"键"，显示时才翻译——这样切语言不会残留旧语言的字符串 */
+var V_K={idle:'vIdle',checking:'vChecking',pass:'vPass',fail:'vFail',unknown:'vUnknown',over:'vOver'};
+var E_K={fake:'ejFake',unknown:'ejUnknown',over:'ejOver'};
+function vLabel(){ return L(V_K[S.vstate]||'vIdle'); }
+function ejLabel(){ return S.ejreason ? L(E_K[S.ejreason]||'ejUnknown') : ''; }
 
 function uiInit(){
   uiCv=document.createElement('canvas'); uiCv.width=UIW*SK; uiCv.height=UIH*SK;
@@ -390,11 +482,12 @@ function uiInit(){
 }
 function T(str,x,y,size,color,weight,align,mono){
   uix.fillStyle=color||'#14171c';
-  uix.font=(weight||400)+' '+(size||12)+'px '+(mono?MONO:FONT);
+  uix.font=(weight||400)+' '+(size||12)+'px '+((mono||LANG==='zh')?MONO:FONT);
   uix.textAlign=align||'left'; uix.textBaseline='alphabetic';
   uix.fillText(str,x,y);
 }
 function RR(x,y,w,h,r,fill,stroke){
+  r=Math.max(0,Math.min(r||0, Math.min(w,h)/2));     // 半径不能超过短边一半，否则路径会畸变
   uix.beginPath();
   uix.moveTo(x+r,y); uix.arcTo(x+w,y,x+w,y+h,r); uix.arcTo(x+w,y+h,x,y+h,r);
   uix.arcTo(x,y+h,x,y,r); uix.arcTo(x,y,x+w,y,r); uix.closePath();
@@ -412,10 +505,7 @@ function Btn(x,y,w,h,label,opt){
 }
 function kicker(t){ T(t, 20, 24, 10.5, '#ff6a2c', 700); }
 function h2(t){ T(t, 20, 50, 19, '#14171c', 600); }
-function fine(){
-  T(FINE1, 20, UIH-16, 9, '#9aa0a8');
-  T(FINE2, 20, UIH-5,  9, '#9aa0a8');
-}
+function fine(){ T(L('fine1'), 20, UIH-16, 9, '#9aa0a8'); T(L('fine2'), 20, UIH-5, 9, '#9aa0a8'); }
 function rowLine(label,val,y,color){
   T(label, 20, y, 11.5, '#8b9099');
   T(val, UIW-20, y, 11.5, color||'#14171c', 600, 'right');
@@ -424,95 +514,100 @@ function rowLine(label,val,y,color){
   uix.setLineDash([]);
 }
 function wrap(str,x,y,maxW,size,color,mono){
-  var words=(mono? str.split('') : str.split(''));
-  var line='', ly=y;
-  for(var i=0;i<words.length;i++){
-    var test=line+words[i];
+  var chars=String(str).split(''); var line='', ly=y;
+  for(var i=0;i<chars.length;i++){
+    var test=line+chars[i];
     uix.font='400 '+size+'px '+(mono?MONO:FONT);
-    if(uix.measureText(test).width>maxW && line){ T(line,x,ly,size,color,400,'left',mono); line=words[i]; ly+=size+2.5; }
+    if(uix.measureText(test).width>maxW && line){ T(line,x,ly,size,color,400,'left',mono); line=chars[i]; ly+=size+2.5; }
     else line=test;
   }
   if(line) T(line,x,ly,size,color,400,'left',mono);
   return ly+size+2.5;
 }
+/* 语言切换（右上角小胶囊）——机场机器本来就该多语言 */
+function langPill(){
+  RR(UIW-62,8,42,18,9,'#ffffff','#e7e9ee');
+  T(LANG==='en'?'中文':'EN', UIW-41, 21, 10, '#7c5cff', 700, 'center');
+  HIT(UIW-62,8,42,18,function(){ LANG = (LANG==='en' ? 'zh' : 'en'); drawUI(); });
+}
+/* 报价锁价那一行（放钞页 / 钱包页 / 确认页共用） */
+function quoteLine(y){
+  if(!S.quote) return;
+  var qp=Math.max(0,Math.min(1,S.quote.left/QUOTE_SECS));
+  var fresh=Date.now()<(S.quote.noteT||0);
+  RR(20,y,UIW-40,4,2,'#eceef2');
+  RR(20,y,(UIW-40)*qp,4,2, S.quote.refreshing?'#b4342c':'#ff6a2c');
+  var txt = S.quote.refreshing ? L('quoteExpired')
+          : (fresh ? L(S.quote.noteK||'quoteSame', S.quote.noteArgs||{}) : L('quoteLeft',{n:S.quote.left}));
+  T(txt, 20, y+16, 9.5, (S.quote.refreshing||fresh)?'#b4342c':'#8b9099', 700);
+  if(DEMO_FX_JITTER) T(L('demoJitter'), UIW-20, y+16, 9, '#ff6a2c', 700, 'right');
+}
 
-/* ---- 各屏 ---- */
+/* ---- screens ---- */
 function drawUI(){
   if(!uix) return;
   hits=[];
   uix.clearRect(0,0,UIW,UIH); RR(0,0,UIW,UIH,14,'#f7f8fa');
-  if(S.step===0) dIdle(); else if(S.step===1) dCurrency(); else if(S.step===2) dCash();
-  else if(S.step===3) dWallet(); else if(S.step===4) dProc(); else if(S.step===5) dDone();
-  fine();
+  if(S.procRunning) dProc();
+  else if(S.step===0) dIdle(); else if(S.step===1) dCurrency(); else if(S.step===2) dCash();
+  else if(S.step===3) dWallet(); else if(S.step===4) dConfirm(); else if(S.step===5) dDone();
+  langPill(); fine();
   if(uiTex) uiTex.needsUpdate=true;
 }
 function dIdle(){
-  kicker('剩余零钱 · 即时兑换');
-  h2('把用不完的外币零钱'); T('换成 USDC 带走', 20, 74, 19, '#14171c', 600);
-  T('投入纸币 → 输入你钱包的收款地址', 20, 104, 12, '#8b9099');
-  T('等值 USDC 直接进你的钱包。免注册、免账户。', 20, 122, 12, '#8b9099');
-  Btn(20, UIH-58, UIW-40, 40, '开始兑换', {primary:true, fn:startFlow});
+  kicker(L('idleKick'));
+  T(L('idleH1'), 20, 50, 19, '#14171c', 600);
+  T(L('idleH2'), 20, 74, 19, '#14171c', 600);
+  T(L('idleL1'), 20, 104, 12, '#8b9099');
+  T(L('idleL2'), 20, 122, 12, '#8b9099');
+  Btn(20, UIH-58, UIW-40, 40, L('start'), {primary:true, fn:startFlow});
 }
 function dCurrency(){
-  kicker('第 1/5 步 · 选币种');
-  h2('选择要兑换的币种');
+  kicker(L('step1'));
+  h2(L('curTitle'));
   var y=62;
   CURRENCIES.forEach(function(c,i){
     RR(20,y,UIW-40,56,10,'#ffffff','#e7e9ee');
     T(c.code, 32, y+19, 14, '#14171c', 700);
     T(c.name, 32+uix.measureText(c.code).width+34, y+19, 11.5, '#8b9099');
-    T('1 '+c.code+' = '+fmtFx(c.fx)+' USDC', 32, y+34, 10.5, '#7c5cff', 700);
-    T('面额 '+c.notes.join(' / ')+' · 上限 '+fmt(c.cap), 32, y+48, 9.5, '#9aa0a8');
+    T(L('cashRate',{c:c.code,r:fmtFx(c.fx)}), 32, y+34, 10.5, '#7c5cff', 700);
+    T(L('curDenom')+' '+c.notes.join(' / ')+' · '+L('curCap')+' '+fmt(c.cap), 32, y+48, 9.5, '#9aa0a8');
     HIT(20,y,UIW-40,56,function(){ pickCur(i); });
     y+=60;
   });
-  T(FX_SRC, 20, UIH-72, 9, '#b0b6be');
-  T('刷新汇率', UIW-20, UIH-72, 9.5, '#7c5cff', 700, 'right');
-  HIT(UIW-68, UIH-84, 48, 18, function(){ toast('正在刷新汇率…'); fetchRates(function(o){ toast(o?'汇率已更新（实时）':'拿不到网络，已用离线快照'); }); });
-  Btn(20, UIH-58, UIW-40, 40, '返回', {ghost:true, fn:function(){ go(0); }});
+  var src = FX_STATE==='loading' ? L('curFetching') : (FX_LIVE ? L('curLive') : L('curOffline'));
+  T(src, 20, UIH-72, 9, '#b0b6be');
+  T(L('curRefresh'), UIW-20, UIH-72, 9.5, '#7c5cff', 700, 'right');
+  HIT(UIW-96, UIH-84, 76, 18, function(){ toast('…'); fetchRates(function(o){ toast(o?'Rates updated (live)':'No network — offline snapshot'); }); });
+  Btn(20, UIH-58, UIW-40, 40, L('back'), {ghost:true, fn:function(){ go(0); }});
 }
 function dCash(){
   if(!S.cur) return dCurrency();
   var c=S.cur;
-  kicker('第 2/5 步 · 放钞');
-  h2('请放入现钞');
+  kicker(L('step2'));
+  h2(L('cashTitle'));
   T(fmt(total()), UIW/2-24, 106, 34, '#14171c', 700, 'right');
   T(c.code, UIW/2+8, 106, 13, '#8b9099', 600, 'left');
-  T('已入账金额', UIW/2, 126, 10.5, '#8b9099', null, 'center');
-  T('≈ '+amount().toFixed(2)+' USDC 到账　（1 '+c.code+' = '+fmtFx(fxLocked())+' USDC）', UIW/2, 146, 10.5, '#7c5cff', 700, 'center');
-  if(S.quote){
-    var qp=Math.max(0,Math.min(1,S.quote.left/QUOTE_SECS));
-    var fresh=Date.now()<(S.quote.noteT||0);
-    RR(20,154,UIW-40,4,2,'#eceef2'); RR(20,154,(UIW-40)*qp,4,2, S.quote.refreshing?'#b4342c':'#ff6a2c');
-    var qtxt = S.quote.refreshing ? '报价已过期 · 正在重新报价…'
-             : (fresh ? S.quote.note : ('本报价锁价 '+S.quote.left+' 秒'));
-    T(qtxt, 20, 170, 9.5, (S.quote.refreshing||fresh)?'#b4342c':'#8b9099', 700);
-    if(DEMO_FX_JITTER) T('演示：模拟行情波动', UIW-20, 170, 9, '#ff6a2c', 700, 'right');
-  }
+  T(L('cashInserted'), UIW/2, 126, 10.5, '#8b9099', null, 'center');
+  T(L('cashWillGet',{v:amount().toFixed(2)}), UIW/2, 146, 10.5, '#7c5cff', 700, 'center');
+  quoteLine(152);
   var y=182;
-  rowLine('验钞', S.vstate, y); y+=22;
-  rowLine('已收', S.notes.length+' 张', y); y+=22;
-  rowLine('已吐回', S.ejected+' 张', y); y+=22;
-  rowLine('小额上限', fmt(c.cap)+' '+c.code, y); y+=26;
-  if(S.ejreason){
-    RR(20,y,UIW-40,26,8,'#fdecea','#f3c9c4');
-    T('↩ 已吐回：'+S.ejreason, 30, y+17, 11, '#b4342c', 600);
-    y+=32;
-  }else{
-    T('把托盘上的纸币拖进进钞口', 20, y+4, 11, '#8b9099'); y+=30;
-  }
-  Btn(20, UIH-58, 110, 40, '取消', {ghost:true, fn:startFlow});
-  Btn(140, UIH-58, UIW-160, 40, '完成放钞', {primary:true, disabled:!S.notes.length, fn:function(){ go(3); }});
+  rowLine(L('rowVerify'), vLabel(), y); y+=22;
+  rowLine(L('rowIn'), S.notes.length, y); y+=22;
+  rowLine(L('rowOut'), S.ejected, y); y+=22;
+  rowLine(L('rowCap'), fmt(c.cap)+' '+c.code, y); y+=26;
+  if(S.ejreason){ RR(20,y,UIW-40,26,8,'#fdecea','#f3c9c4'); T(L('ejected',{r:ejLabel()}), 30, y+17, 11, '#b4342c', 600); }
+  else T(L('dragHint'), 20, y+4, 11, '#8b9099');
+  Btn(20, UIH-58, 110, 40, L('cancel'), {ghost:true, fn:startFlow});
+  Btn(140, UIH-58, UIW-160, 40, L('next'), {primary:true, disabled:!S.notes.length, fn:function(){ go(3); }});
 }
 function dWallet(){
-  kicker('第 3/5 步 · 收款钱包');
-  h2('输入你钱包的收款地址');
+  kicker(L('step3'));
+  h2(L('walTitle'));
   RR(20,62,UIW-40,38,10,'#ffffff', S.walletOK?'#1a9e5f':'#e7e9ee');
-  if(S.wallet) T(S.wallet.length>33 ? S.wallet.slice(0,32)+'…' : S.wallet, 30, 87, 13, '#14171c', 600, 'left', true);
-  else T('输入钱包地址', 30, 87, 13, '#c9ccd3');
-  if(blinkOn){ var tw=S.wallet ? uix.measureText(S.wallet.length>33?S.wallet.slice(0,32)+'…':S.wallet).width : 0;
-    uix.fillStyle='#14171c'; uix.fillRect(31+tw, 74, 1.2, 16); }
-  /* 屏幕键盘：只给 base58 合法字符 */
+  var shown = S.wallet ? (S.wallet.length>33 ? S.wallet.slice(0,32)+'…' : S.wallet) : '';
+  if(shown) T(shown, 30, 87, 13, '#14171c', 600, 'left', true); else T(L('walPh'), 30, 87, 13, '#c9ccd3');
+  if(blinkOn){ var tw=shown?uix.measureText(shown).width:0; uix.fillStyle='#14171c'; uix.fillRect(31+tw, 74, 1.2, 16); }
   var AB='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
   var rows=[AB.slice(0,9)], i;
   for(i=9;i<AB.length;i+=10) rows.push(AB.slice(i,i+10));
@@ -525,68 +620,77 @@ function dWallet(){
       HIT(kx,ky,kw,24,function(){ kbTap(ch); });
       kx+=kw+3;
     });
-    if(ri===rows.length-1){
-      RR(kx,ky,kw*1.7,24,6,'#ffffff','#e7e9ee');
-      T('⌫', kx+kw*0.85, ky+17, 13, '#14171c', 700, 'center');
-      HIT(kx,ky,kw*1.7,24,kbBack);
-    }
+    if(ri===rows.length-1){ RR(kx,ky,kw*1.7,24,6,'#ffffff','#e7e9ee'); T('⌫', kx+kw*0.85, ky+17, 13, '#14171c', 700, 'center'); HIT(kx,ky,kw*1.7,24,kbBack); }
     ky+=27;
   });
-  T('钱直接进这个钱包，不经过任何中间账户。', 20, ky+16, 10.5, '#8b9099');
-  if(S.quote){
-    var fresh2=Date.now()<(S.quote.noteT||0);
-    T(S.quote.refreshing ? '报价已过期 · 正在重新报价…'
-      : (fresh2 ? S.quote.note : ('本报价锁价 '+S.quote.left+' 秒 · 1 '+S.cur.code+' = '+fmtFx(fxLocked())+' USDC')),
-      20, ky+34, 9.5, (S.quote.refreshing||fresh2)?'#b4342c':'#8b9099', 700);
-  }
-  T('扫码', 20, ky+52, 10.5, '#7c5cff', 600);  HIT(20,ky+42,32,16,scanWallet);
-  T('用演示地址', 58, ky+52, 10.5, '#7c5cff', 600);
-  HIT(58,ky+42,72,16,function(){ S.wallet=DEMO_WALLET; onWalletInput(S.wallet); });
-  Btn(20, UIH-58, 110, 40, '返回', {ghost:true, fn:function(){ go(2); }});
-  Btn(140, UIH-58, UIW-160, 40, '完成', {primary:true, disabled:!S.walletOK, fn:startProc});
+  T(L('walNote'), 20, ky+16, 10.5, '#8b9099');
+  quoteLine(ky+24);
+  T(L('walScan'), 20, ky+62, 10.5, '#7c5cff', 600); HIT(20,ky+52,44,16,scanWallet);
+  T(L('walDemo'), 70, ky+62, 10.5, '#7c5cff', 600);
+  HIT(70,ky+52,84,16,function(){ S.wallet=DEMO_WALLET; onWalletInput(S.wallet); });
+  Btn(20, UIH-58, 110, 40, L('back'), {ghost:true, fn:function(){ go(2); }});
+  Btn(140, UIH-58, UIW-160, 40, L('next'), {primary:true, disabled:!S.walletOK, fn:function(){ go(4); }});
+}
+/* 4 确认：真实兑换机一定会给最终报价汇总，旅客确认才成交 */
+function dConfirm(){
+  kicker(L('step4'));
+  h2(L('cfTitle'));
+  var c=S.cur, amt=amount();
+  RR(20,62,UIW-40,74,10,'#ffffff','#e7e9ee');
+  T(L('cfGive'), 32, 82, 11, '#8b9099');
+  T(fmt(total())+' '+c.code, UIW-32, 82, 15, '#14171c', 700, 'right');
+  uix.strokeStyle='#eef0f4'; uix.beginPath(); uix.moveTo(32,92); uix.lineTo(UIW-32,92); uix.stroke();
+  T(L('cfGet'), 32, 112, 11, '#8b9099');
+  T(amt.toFixed(2)+' USDC', UIW-32, 112, 15, '#1a9e5f', 700, 'right');
+  T(L('cfNote'), 32, 128, 9, '#b0b6be');
+  var y=150;
+  rowLine(L('cfRate'), '1 '+c.code+' = '+fmtFx(fxLocked())+' USDC', y); y+=22;
+  rowLine(L('cfFee'), (FEE*100).toFixed(1)+'%', y); y+=22;
+  rowLine(L('cfTo'), shortWallet(S.wallet), y); y+=24;
+  quoteLine(y);
+  Btn(20, UIH-58, 110, 40, L('back'), {ghost:true, fn:function(){ go(3); }});
+  Btn(140, UIH-58, UIW-160, 40, L('cfGo'), {primary:true, fn:startProc});
 }
 function dProc(){
-  kicker('第 4/5 步 · 兑换');
-  h2('正在兑换');
+  kicker(L('step4'));
+  h2(L('prTitle'));
   var y=76;
   RR(20,y,UIW-40,7,3,'#eceef2');
   RR(20,y,(UIW-40)*(S.procPct||0),7,3,'#ff6a2c');
   y=112;
-  ['校验收款钱包','按汇率计价','发起 Solana 转账','完成'].forEach(function(t,i){
-    var doneKi=i<(S.procAt||0);
+  [L('pr1'),L('pr2'),L('pr3'),L('pr4')].forEach(function(t,i){
+    var dk=i<(S.procAt||0);
     uix.beginPath(); uix.arc(28,y-4,7,0,Math.PI*2);
-    uix.fillStyle = doneKi? '#1a9e5f' : '#eceef2'; uix.fill();
-    if(doneKi) T('✓', 28, y, 9, '#ffffff', 700, 'center');
-    T(t, 44, y, 12.5, doneKi? '#4a5058' : '#b6bac1', null);
+    uix.fillStyle = dk? '#1a9e5f' : '#eceef2'; uix.fill();
+    if(dk) T('✓', 28, y, 9, '#ffffff', 700, 'center');
+    T(t, 44, y, 12.5, dk? '#4a5058' : '#b6bac1', null);
     y+=30;
   });
-  Btn(20, UIH-58, UIW-40, 40, '处理中…', {primary:true, disabled:true});
+  Btn(20, UIH-58, UIW-40, 40, L('prBusy'), {primary:true, disabled:true});
 }
 function dDone(){
-  kicker('第 5/5 步 · 完成');
-  T('✅', UIW/2, 96, 26, '#14171c', null, 'center');
-  T(amount().toFixed(2), UIW/2, 152, 38, '#14171c', 700, 'center');
-  T('USDC · 已进你的钱包', UIW/2, 172, 11.5, '#8b9099', null, 'center');
+  kicker(L('step5'));
+  T('✅', UIW/2, 90, 26, '#14171c', null, 'center');
+  T(amount().toFixed(2), UIW/2, 142, 38, '#14171c', 700, 'center');
+  T(L('dnSent'), UIW/2, 162, 11.5, '#8b9099', null, 'center');
+  uix.strokeStyle='#e7e9ee'; uix.setLineDash([3,3]);
+  uix.beginPath(); uix.moveTo(20,174); uix.lineTo(UIW-20,174); uix.stroke(); uix.setLineDash([]);
   var t=new Date();
   var hh=('0'+t.getHours()).slice(-2), mm=('0'+t.getMinutes()).slice(-2);
-  uix.strokeStyle='#e7e9ee'; uix.setLineDash([3,3]);
-  uix.beginPath(); uix.moveTo(20,186); uix.lineTo(UIW-20,186); uix.stroke(); uix.setLineDash([]);
-  T('收款钱包 '+shortWallet(S.wallet), 20, 202, 11, '#5b6169', 600);
-  T('时间 '+hh+':'+mm, UIW-20, 202, 11, '#5b6169', 600, 'right');
-  T('成交价 1 '+S.cur.code+' = '+fmtFx(fxLocked())+' USDC（锁价）', 20, 220, 11, '#5b6169', 600);
-  T('手续费 '+(FEE*100).toFixed(1)+'%', UIW-20, 220, 11, '#5b6169', 600, 'right');
-  T(FX_SRC, 20, 234, 8.5, '#b0b6be');
-  /* 交易哈希框 */
+  T(L('dnWallet')+' '+shortWallet(S.wallet), 20, 190, 11, '#5b6169', 600);
+  T(L('dnTime')+' '+hh+':'+mm, UIW-20, 190, 11, '#5b6169', 600, 'right');
+  T(L('dnRate')+' 1 '+S.cur.code+' = '+fmtFx(fxLocked()), 20, 208, 11, '#5b6169', 600);
+  T(L('dnFee')+' '+(FEE*100).toFixed(1)+'%', UIW-20, 208, 11, '#5b6169', 600, 'right');
+  T(L('dnRef')+' '+(S.ref||'—'), 20, 224, 9.5, '#9aa0a8', 600);
   var rec=S.sigRec||{mode:'mock',sig:''};
-  RR(20,246,UIW-40,rec.mode==='mock'?84:(rec.sig?62:54),10,'#ffffff','#e7e9ee');
-  var tag = rec.mode==='real' ? '◎ SOLANA · DEVNET' : (rec.mode==='pending' ? '◎ SOLANA · 提交中' : '◎ SOLANA · 模拟');
-  T(tag, 30, 264, 10.5, '#7c5cff', 800);
-  var st  = rec.mode==='real' ? (rec.confirmed?'已确认':'已提交') : (rec.mode==='pending'?'确认中…':'模拟');
-  T(st, UIW-30, 264, 10.5, rec.mode==='real'?'#1a9e5f':'#b6bac1', 700, 'right');
-  if(rec.sig) wrap(rec.sig, 30, 280, UIW-60, 8.5, '#4a5058', true);
-  else T('—', 30, 280, 9, '#4a5058');
-  if(rec.mode==='mock') T('未接入 devnet，已用模拟值'+(rec.err?('（'+String(rec.err).slice(0,22)+'）'):''), 30, 320, 8, '#b0b6be');
-  Btn(20, UIH-58, UIW-40, 40, '再兑一笔', {primary:true, fn:resetAll});
+  RR(20,234,UIW-40,rec.mode==='mock'?80:(rec.sig?62:54),10,'#ffffff','#e7e9ee');
+  var tag = rec.mode==='real' ? L('solDevnet') : (rec.mode==='pending' ? L('solPend') : L('solMock'));
+  T(tag, 30, 252, 10.5, '#7c5cff', 800);
+  var st  = rec.mode==='real' ? (rec.confirmed?L('stConf'):L('stSent')) : (rec.mode==='pending'?'…':L('stMock'));
+  T(st, UIW-30, 252, 10.5, rec.mode==='real'?'#1a9e5f':'#b6bac1', 700, 'right');
+  if(rec.sig) wrap(rec.sig, 30, 268, UIW-60, 8.5, '#4a5058', true); else T('—', 30, 268, 9, '#4a5058');
+  if(rec.mode==='mock') T(L('mockNote'), 30, 308, 8, '#b0b6be');
+  Btn(20, UIH-58, UIW-40, 40, L('dnAgain'), {primary:true, fn:resetAll});
 }
 
 /* =========================================================================
@@ -595,30 +699,30 @@ function dDone(){
 var blinkOn=false;
 setInterval(function(){ blinkOn=!blinkOn; if(S.step===3) drawUI(); }, 520);
 
-function pickCur(i){ S.cur=CURRENCIES[i]; S.notes=[]; S.ejected=0; S.ejreason=''; S.vstate='待机'; buildNotes(); lockQuote(); go(2); toast('已选 '+S.cur.code+'，把托架上的纸币拖进进钞口'); }
-function resetAll(){ S.cur=null; S.quote=null; S.notes=[]; S.ejected=0; S.ejreason=''; S.vstate='待机'; S.wallet=''; S.walletOK=false; buildNotes(); stopCam(); if($('camPanel')) $('camPanel').hidden=true; go(0); }
-function startFlow(){ S.cur=null; S.quote=null; S.notes=[]; S.rejected=0; S.ejected=0; S.ejreason=''; S.vstate='待机'; buildNotes(); go(1); }
+function pickCur(i){ S.cur=CURRENCIES[i]; S.notes=[]; S.ejected=0; S.ejreason=null; S.vstate='idle'; buildNotes(); lockQuote(); go(2); toast(L('pickedToast',{c:S.cur.code})); }
+function resetAll(){ S.cur=null; S.quote=null; S.notes=[]; S.ejected=0; S.ejreason=null; S.vstate='idle'; S.wallet=''; S.walletOK=false; S.procRunning=false; S.ref=null; buildNotes(); stopCam(); if($('camPanel')) $('camPanel').hidden=true; go(0); }
+function startFlow(){ S.cur=null; S.quote=null; S.notes=[]; S.rejected=0; S.ejected=0; S.ejreason=null; S.vstate='idle'; S.procRunning=false; S.ref=null; buildNotes(); go(1); }
 function go(n){ S.step=n; applyStep3D(); drawUI(); }
 
 /* 塞钞：ok=验钞通过；fake=疑似假币；unknown=识别不了；超小额上限也算"多余" */
 function insertNote(v, kind, obj){
   kind = kind || 'ok';
-  if(S.step!==2){ toast('请先选币种'); return; }
+  if(S.step!==2){ toast(L('errPick')); return; }
   if(S.verifying) return;
-  S.verifying=true; S.vstate='验钞中…'; S.ejreason=''; drawUI();
+  S.verifying=true; S.vstate='checking'; S.ejreason=null; drawUI();
   setTimeout(function(){
     S.verifying=false;
     var over = (kind==='ok' && total()+v > S.cur.cap);
     if(kind!=='ok' || over){
       S.ejected++;
-      S.ejreason = kind==='fake' ? '疑似假币' : (kind==='unknown' ? '无法识别' : '超出小额上限（只做小额）');
-      S.vstate   = kind==='fake' ? '未通过'   : (kind==='unknown' ? '无法识别' : '超出上限');
+      S.ejreason = kind==='fake' ? 'fake' : (kind==='unknown' ? 'unknown' : 'over');
+      S.vstate   = kind==='fake' ? 'fail' : (kind==='unknown' ? 'unknown' : 'over');
       if(obj) ejectNote(obj);
-      toast('已吐回：'+S.ejreason);
+      toast(L('ejected',{r:ejLabel()}));
     }else{
-      S.notes.push(v); S.vstate='通过';
+      S.notes.push(v); S.vstate='pass';
       if(obj) swallowNote(obj);
-      toast('验钞通过 · 已入账 '+fmt(v)+' '+S.cur.code);
+      toast(L('okToast',{v:fmt(v), c:S.cur.code}));
     }
     drawUI();
   }, 700);
@@ -644,9 +748,9 @@ function onWalletScan(text){
   onWalletInput(walletShapeOK(a) ? a : DEMO_WALLET);
   stopCam(); if($('camPanel')) $('camPanel').hidden=true;
   drawUI();
-  toast('已读取收款钱包');
+  toast(L('walletRead'));
 }
-function startProc(){ go(4); runProc(); }
+function startProc(){ S.procRunning=true; runProc(); }
 
 function runProc(){
   S.procAt=0; S.procPct=0; drawUI();
@@ -659,9 +763,12 @@ function runProc(){
   })();
 }
 function finish(){
+  S.procRunning=false;
+  S.ref = 'CL-' + b58(8).toUpperCase();            // 小票凭证号（演示）
   S.sigRec={mode:'pending', sig:''};
+  var amt=amount();
   go(5);
-  toast('已转出 '+amount().toFixed(2)+' USDC → 你的钱包');
+  toast(L('sentToast',{v:amt.toFixed(2)}));
   solRun(function(rec){ S.sigRec=rec; if(S.step===5) drawUI(); solNet(rec); }, S.wallet);
 }
 function solNet(rec){
@@ -678,7 +785,7 @@ function fmt(n){ return Number(n).toLocaleString('en-US',{maximumFractionDigits:
 window.addEventListener('keydown', function(e){
   if(S.step!==3) return;
   if(e.key==='Backspace'){ kbBack(); e.preventDefault(); return; }
-  if(e.key==='Enter'){ if(S.walletOK) startProc(); return; }
+  if(e.key==='Enter'){ if(S.walletOK) go(4); return; }
   if(e.key.length===1 && /[1-9A-HJ-NP-Za-km-z]/.test(e.key)){ kbTap(e.key); e.preventDefault(); }
 });
 
@@ -691,13 +798,13 @@ function startCam(){
   if(!view||!video) return;
   view.classList.add('live');
   $('camLed').className='led scan';
-  $('camFoot').textContent='正在请求摄像头权限…';
-  var cs=$('camState'); if(cs) cs.textContent='启动中…';
+  $('camFoot').textContent='Requesting camera permission…';
+  var cs=$('camState'); if(cs) cs.textContent='starting…';
   navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280}},audio:false})
   .then(function(s){ stream=s; video.srcObject=s; return video.play(); })
   .then(function(){
-    $('camFoot').textContent='摄像头已开启 —— 把二维码放进取景框';
-    var cs2=$('camState'); if(cs2) cs2.textContent='寻找二维码…';
+    $('camFoot').textContent='Camera on — hold the receive code in the frame';
+    var cs2=$('camState'); if(cs2) cs2.textContent='looking for a code…';
     if('BarcodeDetector' in window){
       return window.BarcodeDetector.getSupportedFormats().then(function(fmts){
         if(fmts.indexOf('qr_code')>=0){
@@ -711,14 +818,14 @@ function startCam(){
     }
   }).then(function(){
     if(!detector){
-      $('camFoot').textContent='摄像头已开启 —— 本浏览器不支持自动识别，请点「演示地址」';
-      var ss=$('scanState'); if(ss) ss.textContent='需手动确认';
+      $('camFoot').textContent='Camera on — this browser cannot decode codes; tap “Use demo address”';
+      var ss=$('scanState'); if(ss) ss.textContent='manual confirm needed';
     }
   }).catch(function(err){
     stopCam();
-    var cs3=$('camState'); if(cs3) cs3.textContent='摄像头不可用';
-    $('camFoot').textContent='拿不到摄像头（'+((err&&err.name)||'未知')+'）。可点「演示地址」继续。';
-    var st=$('scanState'); if(st) st.textContent='等待手动确认';
+    var cs3=$('camState'); if(cs3) cs3.textContent='camera unavailable';
+    $('camFoot').textContent='No camera ('+((err&&err.name)||'unknown')+'). You can tap “Use demo address”.';
+    var st=$('scanState'); if(st) st.textContent='waiting for manual confirm';
   });
 }
 function stopCam(){
@@ -861,7 +968,7 @@ function buildKiosk(){
   window.__scanLens=new THREE.Mesh(new THREE.CircleGeometry(0.034,24),
     new THREE.MeshStandardMaterial({color:0x0b3d33, roughness:0.2, metalness:0.7, emissive:0x0a5c47, emissiveIntensity:0.7}));
   window.__scanLens.position.set(-0.26,0.80,FRONT+0.014); g.add(window.__scanLens);
-  var scanLbl=makeLabel('📷 扫码 SCAN',0.4,'#e6edf5'); scanLbl.position.set(0.08,0.80,FRONT+0.017); g.add(scanLbl);
+  var scanLbl=makeLabel('📷 SCAN',0.4,'#e6edf5'); scanLbl.position.set(0.08,0.80,FRONT+0.017); g.add(scanLbl);
   var bar=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.028,0.02), accentMat);
   bar.position.set(0,0.885,FRONT-0.005); g.add(bar);
 
@@ -869,13 +976,13 @@ function buildKiosk(){
   slotMesh.position.set(0,-0.585,FRONT-0.01); slotMesh.castShadow=true; g.add(slotMesh);
   var mouth=new THREE.Mesh(new THREE.PlaneGeometry(0.62,0.05), new THREE.MeshBasicMaterial({color:0x000000}));
   mouth.position.set(0,-0.585,FRONT+0.036); g.add(mouth);
-  var slotLbl=makeLabel('进钞口 · 拖到这里',0.5,'#5b6169'); slotLbl.position.set(0,-0.485,FRONT+0.024); g.add(slotLbl);
+  var slotLbl=makeLabel('NOTE IN · drop a note here',0.5,'#5b6169'); slotLbl.position.set(0,-0.485,FRONT+0.024); g.add(slotLbl);
 
   /* 纸币托架：立在机身左侧，不会被机身挡住；吐回也是落回各自原位 */
   trayMesh=new THREE.Mesh(new THREE.BoxGeometry(0.028,0.76,0.15),
     new THREE.MeshStandardMaterial({color:0xe3e7ee, roughness:0.75}));
   trayMesh.position.set(-0.792,-0.22,0.345); trayMesh.castShadow=true; trayMesh.receiveShadow=true; g.add(trayMesh);
-  var trayLbl=makeLabel('纸币 · 拖到进钞口',0.42,'#8b9099');
+  var trayLbl=makeLabel('NOTES · drag into the slot',0.46,'#8b9099');
   trayLbl.position.set(-0.735,0.255,0.40); trayLbl.rotation.y=0.32; g.add(trayLbl);
 
   var base=new THREE.Mesh(new THREE.CylinderGeometry(0.46,0.54,0.11,36), darkMat);
@@ -984,7 +1091,7 @@ function animate(){
 }
 window.__boot=function(){
   if(!window.THREE){ var el=$('loadErr'); if(el) el.style.display='flex'; return; }
-  try{ initThree(); }catch(e){ var el2=$('loadErr'); if(el2){ el2.style.display='flex'; el2.textContent='3D 初始化失败: '+e.message; } return; }
+  try{ initThree(); }catch(e){ var el2=$('loadErr'); if(el2){ el2.style.display='flex'; el2.textContent='3D init failed: '+e.message; } return; }
   fetchRates();                                   // 拿不到网就自动回退到离线快照
   buildNotes();                                   // 开局就摆好纸币（实物一直在机器上）
   try{ solKeypair().then(function(kp){ S.solAddr=b58enc(kp.pub); var s=$('solAddr'); if(s) s.textContent=S.solAddr; }).catch(function(){}); }catch(e){}

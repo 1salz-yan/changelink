@@ -36,15 +36,20 @@ open atm.html          # macOS — or just double-click it
 No server, no install. three.js **is inlined into the file** (r128, MIT), so the 3D
 kiosk renders offline.
 
-The flow is five steps:
+The flow is five steps, and nothing is sent until the traveller confirms:
 
-1. **选币种** — pick the currency you're holding.
-2. **放钞** — drag a banknote from the rack into the intake slot. The machine
-   verifies each note.
-3. **收款钱包** — type your wallet's receive address on the on-screen keyboard
-   (the alphabet is base58 only, so there is no `0/O/I/l` to mistype), or scan the QR.
-4. **兑换** — the machine converts and sends.
-5. **完成** — amount, the locked rate, and the transaction hash.
+1. **Currency** — pick the currency you're holding; each carries its own cap.
+2. **Notes** — drag a banknote from the rack into the intake slot. The machine
+   verifies each note; anything that fails is physically ejected.
+3. **Wallet** — type your wallet's receive address on the on-screen keyboard
+   (base58 only, so there is no `0/O/I/l` to mistype), or scan the QR code.
+4. **Confirm** — the machine shows the final offer (you insert X → you receive Y
+   USDC, at the locked rate, fee, destination) with the quote countdown.
+5. **Done** — amount, the rate it settled at, a receipt reference, and the
+   transaction hash.
+
+The interface is English by default with a 中文 toggle in the corner — an airport
+machine has to be multilingual, and the submission is read in English.
 
 ---
 
