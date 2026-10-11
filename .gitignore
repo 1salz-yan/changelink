@@ -1,25 +1,18 @@
 # macOS
 .DS_Store
 
-# deps (verify.js only; not shipped in the product)
+# npm — the verify.js harness only; nothing here ships in the product
 node_modules/
 package-lock.json
 
-# internal working note — the agent prompt used while building the demo.
-# Deliberately not published: it is a scratch note, not product code.
+# Internal working notes: the agent prompts used while building the demo.
+# Deliberately not published — they are scratch notes, not product code.
 改demo的prompt.md
-
-# Anchor / Rust 构建产物（含 target/deploy/*-keypair.json —— 程序部署密钥，绝不能入库）
-target/
-.anchor/
-Cargo.lock
-
-# 以下为「非本次改动、且未获授权发布」的文件，先挡在仓库外。
-# 要发布就把对应那行删掉（发布 Anchor 程序时记得同步改 README 的披露段）。
 pitch_deck_prompt.md
 video_2min_prompt.md
 video_2min_script.md
-Anchor.toml
-Cargo.toml
-rust-toolchain.toml
-programs/
+
+# Anchor / Rust build output. target/ also holds target/deploy/*-keypair.json, the
+# program's deploy key — that must never be committed.
+target/
+.anchor/
