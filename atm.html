@@ -206,11 +206,11 @@ var FX_API = 'https://open.er-api.com/v6/latest/USD';
 var FX_SRC = 'offline snapshot · ' + FX_SNAP_SRC;
 var FX_LIVE = false;
 var CURRENCIES = [
-  { code:'JPY', name:'日元', base:FX_SNAPSHOT.JPY, fx:FX_SNAPSHOT.JPY, notes:[1000,5000,10000],       cap:10000 },
-  { code:'USD', name:'美元', base:FX_SNAPSHOT.USD, fx:FX_SNAPSHOT.USD, notes:[1,5,10,20],             cap:20    },
-  { code:'EUR', name:'欧元', base:FX_SNAPSHOT.EUR, fx:FX_SNAPSHOT.EUR, notes:[5,10,20,50],            cap:50    },
-  { code:'KRW', name:'韩元', base:FX_SNAPSHOT.KRW, fx:FX_SNAPSHOT.KRW, notes:[1000,5000,10000,50000], cap:50000 },
-  { code:'THB', name:'泰铢', base:FX_SNAPSHOT.THB, fx:FX_SNAPSHOT.THB, notes:[20,50,100,500],         cap:1000  }
+  { code:'JPY', base:FX_SNAPSHOT.JPY, fx:FX_SNAPSHOT.JPY, notes:[1000,5000,10000],       cap:10000 },
+  { code:'USD', base:FX_SNAPSHOT.USD, fx:FX_SNAPSHOT.USD, notes:[1,5,10,20],             cap:20    },
+  { code:'EUR', base:FX_SNAPSHOT.EUR, fx:FX_SNAPSHOT.EUR, notes:[5,10,20,50],            cap:50    },
+  { code:'KRW', base:FX_SNAPSHOT.KRW, fx:FX_SNAPSHOT.KRW, notes:[1000,5000,10000,50000], cap:50000 },
+  { code:'THB', base:FX_SNAPSHOT.THB, fx:FX_SNAPSHOT.THB, notes:[20,50,100,500],         cap:1000  }
 ];
 /* 实时抓汇率：成功→覆盖 fx 并标明抓取时间；失败/超时→退回 ECB 离线快照（保证断网也能演示） */
 var FX_STATE = 'snap';                       // loading | live | snap
@@ -395,6 +395,8 @@ en:{
  idleL1:'Insert notes → enter your own wallet address', idleL2:'USDC arrives in your wallet. No sign-up, no account.',
  start:'Start',
  curTitle:'Choose your currency', curRefresh:'Refresh rates',
+ curDenom:'Notes', curCap:'Cap',
+ curJPY:'Japanese Yen', curUSD:'US Dollar', curEUR:'Euro', curKRW:'Korean Won', curTHB:'Thai Baht',
  curLive:'live · fetched', curOffline:'offline snapshot', curFetching:'fetching…',
  cashTitle:'Insert your notes', cashInserted:'Inserted',
  cashWillGet:'≈ {v} USDC to your wallet', cashRate:'1 {c} = {r} USDC',
@@ -423,6 +425,7 @@ en:{
  solDevnet:'◎ SOLANA · DEVNET', solPend:'◎ SOLANA · SENDING', solMock:'◎ SOLANA · SIMULATED',
  stConf:'Confirmed', stSent:'Sent', stMock:'Simulated',
  mockNote:'Not on devnet — simulated value used',
+ netLive:'Solana devnet (live)', netOff:'offline simulation',
  fine1:'Small amounts only · no sign-up, no account, no custody',
  fine2:'Japan / Germany / Turkey / Southeast Asia (not mainland China)'
 },
@@ -434,6 +437,8 @@ zh:{
  idleL1:'投入纸币 → 输入你钱包的收款地址', idleL2:'等值 USDC 直接进你的钱包。免注册、免账户。',
  start:'开始兑换',
  curTitle:'选择要兑换的币种', curRefresh:'刷新汇率',
+ curDenom:'面额', curCap:'上限',
+ curJPY:'日元', curUSD:'美元', curEUR:'欧元', curKRW:'韩元', curTHB:'泰铢',
  curLive:'实时 · 已获取', curOffline:'离线快照', curFetching:'获取中…',
  cashTitle:'请放入现钞', cashInserted:'已入账金额',
  cashWillGet:'≈ {v} USDC 到账', cashRate:'1 {c} = {r} USDC',
@@ -461,6 +466,7 @@ zh:{
  solDevnet:'◎ SOLANA · DEVNET', solPend:'◎ SOLANA · 提交中', solMock:'◎ SOLANA · 模拟',
  stConf:'已确认', stSent:'已提交', stMock:'模拟',
  mockNote:'未接入 devnet，已用模拟值',
+ netLive:'Solana devnet（真实交易）', netOff:'离线模拟',
  fine1:'只做小额兑换 · 免注册、不设账户、不代保管资金',
  fine2:'服务范围：日本 / 德国 / 土耳其 / 东南亚（不含中国内地）'
 }};
@@ -569,7 +575,7 @@ function dCurrency(){
   CURRENCIES.forEach(function(c,i){
     RR(20,y,UIW-40,56,10,'#ffffff','#e7e9ee');
     T(c.code, 32, y+19, 14, '#14171c', 700);
-    T(c.name, 32+uix.measureText(c.code).width+34, y+19, 11.5, '#8b9099');
+    T(L('cur'+c.code), 32+uix.measureText(c.code).width+34, y+19, 11.5, '#8b9099');
     T(L('cashRate',{c:c.code,r:fmtFx(c.fx)}), 32, y+34, 10.5, '#7c5cff', 700);
     T(L('curDenom')+' '+c.notes.join(' / ')+' · '+L('curCap')+' '+fmt(c.cap), 32, y+48, 9.5, '#9aa0a8');
     HIT(20,y,UIW-40,56,function(){ pickCur(i); });
@@ -773,7 +779,7 @@ function finish(){
 }
 function solNet(rec){
   var el=$('solNet'); if(!el) return;
-  el.textContent = (!rec || rec.mode==='real') ? 'Solana devnet（真实交易）' : '离线模拟';
+  el.textContent = (!rec || rec.mode==='real') ? L('netLive') : L('netOff');
 }
 function total(){ return S.notes.reduce(function(a,b){return a+b;},0); }
 /* 真做币种换算：入账金额 × 该币汇率 × (1−手续费)。汇率取锁价时冻结的那个值 */
