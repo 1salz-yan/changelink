@@ -32,6 +32,12 @@ pub enum ChangeLinkError {
     #[msg("Destination must not be the kiosk treasury itself")]
     DestinationIsTreasury,
 
+    #[msg("This machine is frozen: a physical count of its cash box came up short")]
+    MachineFrozen,
+
+    #[msg("Cash out is capped at a quarter of this kiosk's per-transaction limit")]
+    ExceedsRedeemLimit,
+
     #[msg("Arithmetic overflow")]
     MathOverflow,
 }

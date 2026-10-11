@@ -383,18 +383,93 @@ pub fn setup_kiosk(
     }
 }
 
-/// A traveller's own token account — where the stablecoin is supposed to land.
+/// A traveller: the wallet key (which signs) and its token account (which receives).
+pub struct Traveller {
+    pub wallet: Keypair,
+    pub token_account: Keypair,
+}
+
+pub fn new_traveller(svm: &mut LiteSVM, payer: &Keypair, mint: &Pubkey) -> Traveller {
+    let wallet = Keypair::new();
+    fund(svm, &wallet.pubkey(), ONE_SOL);
+    let token_account = create_token_account(svm, payer, mint, &wallet.pubkey());
+
+    Traveller {
+        wallet,
+        token_account,
+    }
+}
+
+/// The traveller's token account alone — what a payout is sent to.
 pub fn traveller_wallet(svm: &mut LiteSVM, payer: &Keypair, mint: &Pubkey) -> Keypair {
-    let traveller = Keypair::new();
-    fund(svm, &traveller.pubkey(), ONE_SOL);
-    create_token_account(svm, payer, mint, &traveller.pubkey())
+    new_traveller(svm, payer, mint).token_account
+}
+
+pub fn build_redeem_ix(
+    traveller: &Pubkey,
+    kiosk: &Pubkey,
+    source: &Pubkey,
+    treasury: &Pubkey,
+    mint: &Pubkey,
+    serial: u64,
+    amount: u64,
+    currency: [u8; 3],
+    rate_micro: u64,
+) -> Instruction {
+    let (receipt, _) = receipt_pda(kiosk, serial);
+
+    Instruction::new_with_bytes(
+        changelink::id(),
+        &changelink::instruction::Redeem {
+            serial,
+            amount,
+            currency,
+            rate_micro,
+        }
+        .data(),
+        changelink::accounts::Redeem {
+            traveller: *traveller,
+            kiosk: *kiosk,
+            source: *source,
+            treasury: *treasury,
+            mint: *mint,
+            receipt,
+            token_program: token_program_id(),
+            system_program: system_program::ID,
+        }
+        .to_account_metas(None),
+    )
 }
 
 pub fn kiosk_last_serial(svm: &LiteSVM, kiosk: &Pubkey) -> u64 {
     let acc = svm.get_account(kiosk).expect("kiosk should exist");
     let data = &acc.data;
     // authority(32) kiosk_id(8) mint(32) treasury(32) fee_bps(2) max_per_tx(8)
-    // total_swaps(8) total_gross(8) last_serial(8) bump(1), after the 8-byte discriminator.
+    // total_swaps(8) total_gross(8) last_serial(8), after the 8-byte discriminator.
     let off = 8 + 32 + 8 + 32 + 32 + 2 + 8 + 8 + 8;
     u64::from_le_bytes(data[off..off + 8].try_into().unwrap())
+}
+
+/// `frozen` sits immediately before the trailing bump, so the last two bytes are
+/// (frozen, bump).
+pub fn kiosk_frozen(svm: &LiteSVM, kiosk: &Pubkey) -> bool {
+    let acc = svm.get_account(kiosk).expect("kiosk should exist");
+    acc.data[acc.data.len() - 2] != 0
+}
+
+pub fn build_attest_backing_ix(
+    authority: &Pubkey,
+    kiosk: &Pubkey,
+    counted: u64,
+    removed: u64,
+) -> Instruction {
+    Instruction::new_with_bytes(
+        changelink::id(),
+        &changelink::instruction::AttestBacking { counted, removed }.data(),
+        changelink::accounts::AttestBacking {
+            authority: *authority,
+            kiosk: *kiosk,
+        }
+        .to_account_metas(None),
+    )
 }

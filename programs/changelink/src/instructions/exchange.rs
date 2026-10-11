@@ -1,5 +1,5 @@
 use crate::error::ChangeLinkError;
-use crate::state::{Kiosk, Receipt};
+use crate::state::{Kiosk, Receipt, KIND_EXCHANGE};
 use crate::{BPS_DENOMINATOR, KIOSK_SEED, RECEIPT_SEED};
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
@@ -59,6 +59,9 @@ pub fn settle_exchange(
 ) -> Result<()> {
     let kiosk = &mut ctx.accounts.kiosk;
 
+    // A machine whose cash box did not add up settles nothing until a human attests a count
+    // that does. This is checked before anything moves, like every other limit here.
+    require!(!kiosk.frozen, ChangeLinkError::MachineFrozen);
     require!(gross > 0, ChangeLinkError::ZeroAmount);
 
     // The "small amounts only" rule, enforced where an operator cannot bend it per customer,
@@ -104,6 +107,7 @@ pub fn settle_exchange(
     receipt.currency = currency;
     receipt.rate_micro = rate_micro;
     receipt.settled_at = Clock::get()?.unix_timestamp;
+    receipt.kind = KIND_EXCHANGE;
     receipt.bump = ctx.bumps.receipt;
 
     kiosk.last_serial = serial;

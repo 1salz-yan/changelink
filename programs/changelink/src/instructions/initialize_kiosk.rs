@@ -55,6 +55,11 @@ pub fn init_kiosk(
     kiosk.total_swaps = 0;
     kiosk.total_gross = 0;
     kiosk.last_serial = 0;
+    kiosk.total_removed = 0;
+    kiosk.total_redeemed = 0;
+    kiosk.counted_backing = 0;
+    kiosk.backing_checked_at = 0;
+    kiosk.frozen = false;
     kiosk.bump = ctx.bumps.kiosk;
 
     Ok(())

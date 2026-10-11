@@ -49,4 +49,22 @@ pub mod changelink {
     pub fn withdraw_treasury(ctx: Context<WithdrawTreasury>, amount: u64) -> Result<()> {
         withdraw_treasury::sweep_treasury(ctx, amount)
     }
+
+    /// Traveller-signed: send stablecoin back into the machine and take notes out. The other
+    /// half of the machine — cash in, and cash out.
+    pub fn redeem(
+        ctx: Context<Redeem>,
+        serial: u64,
+        amount: u64,
+        currency: [u8; 3],
+        rate_micro: u64,
+    ) -> Result<()> {
+        redeem::cash_out(ctx, serial, amount, currency, rate_micro)
+    }
+
+    /// Operator-only: record a physical count of the cash box. A box that comes up short
+    /// freezes the machine; a count that adds up unfreezes it.
+    pub fn attest_backing(ctx: Context<AttestBacking>, counted: u64, removed: u64) -> Result<()> {
+        attest_backing::record_backing(ctx, counted, removed)
+    }
 }

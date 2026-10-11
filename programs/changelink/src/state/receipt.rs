@@ -35,5 +35,15 @@ pub struct Receipt {
     /// Unix timestamp of settlement.
     pub settled_at: i64,
 
+    /// `KIND_EXCHANGE` (cash in, stablecoin out) or `KIND_REDEEM` (stablecoin in, cash out).
+    /// One serial sequence and one account type, because it is one machine's note counter.
+    pub kind: u8,
+
     pub bump: u8,
 }
+
+/// Cash in: the machine took notes and paid stablecoin to the traveller.
+pub const KIND_EXCHANGE: u8 = 0;
+
+/// Cash out: the traveller sent stablecoin back and the machine paid notes.
+pub const KIND_REDEEM: u8 = 1;

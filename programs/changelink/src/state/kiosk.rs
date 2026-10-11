@@ -38,5 +38,30 @@ pub struct Kiosk {
     /// this is the second one, and it is cheap.
     pub last_serial: u64,
 
+    // ---- cash-box reconciliation.
+    //
+    // What the machine can honestly claim is *not* "supply equals reserve" — with the value
+    // gone to the traveller's own wallet we hold no claim to back. What the chain can hold
+    // the operator to is the cash side: everything that went in, less everything they have
+    // declared taking out, should still be in the box.
+    /// Declared physical removals from the cash box, base units.
+    pub total_removed: u64,
+
+    /// Cash handed back out through `redeem`, in the same bookkeeping unit. Cash leaving the
+    /// box is not a discrepancy — but the chain knows about it, so the count must account for
+    /// it just the same.
+    pub total_redeemed: u64,
+
+    /// The operator's most recent physical count, base units.
+    pub counted_backing: u64,
+
+    /// When that count was taken.
+    pub backing_checked_at: i64,
+
+    /// Set when a physical count came up short: the machine settles nothing until an
+    /// operator attests a count that adds up. Stopping is the point — a machine that keeps
+    /// taking notes while its box is short is the failure this exists to prevent.
+    pub frozen: bool,
+
     pub bump: u8,
 }

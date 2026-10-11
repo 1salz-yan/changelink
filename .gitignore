@@ -16,3 +16,7 @@ video_2min_script.md
 # program's deploy key — that must never be committed.
 target/
 .anchor/
+
+# Editor / Finder duplicates ("lib 2.rs", "Cargo 2.toml"): always accidental, never wanted.
+# Two people and two agents work in this folder; this keeps a stray copy out of a commit.
+* 2.*
