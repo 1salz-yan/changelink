@@ -1,0 +1,36 @@
+[package]
+name = "changelink"
+version = "0.1.0"
+description = "ChangeLink kiosk settlement program: cash in, stablecoin straight into the traveller's own wallet, receipt kept on-chain."
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "changelink"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+anchor-debug = []
+custom-heap = []
+custom-panic = []
+
+[dependencies]
+# Pinned to the anchor-cli actually installed on this machine (1.2.0). Without the `=`
+# cargo resolves ^1.2.0 to the newest 1.2.x and the CLI then refuses to build.
+anchor-lang = "=1.2.0"
+anchor-spl = { version = "=1.2.0", default-features = false, features = ["token", "token_2022"] }
+
+[dev-dependencies]
+litesvm = "0.16.0"
+solana-message = "~4.4"
+solana-transaction = "~4.1.6"
+solana-signer = "3.0.0"
+solana-keypair = "3.0.1"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }
