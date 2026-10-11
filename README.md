@@ -271,7 +271,11 @@ sounding big.
 - **The serialization is verified byte-for-byte against the official
   `@solana/web3.js`** — see [Verify](#verify). With a funded kiosk wallet the done
   screen shows a **real, confirmed devnet signature**.
-- QR scanning for the wallet address uses the real camera when the browser allows it.
+- QR scanning for the wallet address is **real and works in Safari**: the camera frame
+  is decoded by **jsQR 1.4.0** (Apache-2.0, inlined verbatim like three.js), because
+  Safari has no native `BarcodeDetector`. It accepts a raw address, a `solana:` pay
+  URI, or text containing an address — and anything that is not a 32-byte address is
+  **refused with a message**, never silently replaced with a demo address.
 
 **Simulated — and labelled as such in the UI**
 
