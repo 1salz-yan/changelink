@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# deps (verify.js only; not shipped in the product)
+node_modules/
+package-lock.json
+package.json
+
+# internal working note — the agent prompt used while building the demo.
+# Deliberately not published: it is a scratch note, not product code.
+改demo的prompt.md
