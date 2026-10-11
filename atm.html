@@ -107,7 +107,7 @@
     <div class="kv"><span>兑换通道</span><b>USDC（Solana）</b></div>
     <div class="kv"><span>汇率</span><b id="fxSrc">离线快照</b></div>
     <div class="kv"><span>折算率</span><b>按币种（见选币页）</b></div>
-    <div class="kv"><span>报价</span><b>锁价 30 秒</b></div>
+    <div class="kv"><span>报价</span><b>锁价 30 秒（含演示波动）</b></div>
     <div class="kv"><span>手续费</span><b>2.0%</b></div>
     <div class="kv"><span>币种</span><b>JPY/USD/EUR/KRW/THB（占位）</b></div>
     <div class="kv"><span>小额上限</span><b>按币种，如 EUR 50</b></div>
@@ -157,9 +157,22 @@ var FEE  = 0.02;                  // 2% 手续费
 /* 报价锁价：真实找换店不是看 tick 报价，而是「挂一个价、锁一段时间」。
    这里锁 30 秒——锁住的期间成交按这个价；过期自动按最新汇率重新报价。 */
 var QUOTE_SECS = 30;
+/* 演示用：模拟行情波动。免费日更汇率一天只变一次，重新报价看不出任何变化，
+   所以演示时在这一层上加一个标明"模拟"的小幅漂移，让锁价机制看得见。
+   真实接入行情源后把这里改成 false（或删掉这段）即可。 */
+var DEMO_FX_JITTER = true;
+var FX_JITTER = {};
+function applyJitter(){
+  CURRENCIES.forEach(function(c){
+    var j=(FX_JITTER[c.code]||0) + (Math.random()-0.5)*0.004;   // 每次 ±0.2% 的随机游走
+    j=Math.max(-0.006, Math.min(0.006, j));                     // 累计限制在 ±0.6%
+    FX_JITTER[c.code]=j;
+    c.fx=c.base*(1+j);
+  });
+}
 function lockQuote(){
   var c = S.cur || defaultCur();
-  S.quote = { code:c.code, rate:c.fx, left:QUOTE_SECS, refreshing:false };
+  S.quote = { code:c.code, rate:c.fx, left:QUOTE_SECS, refreshing:false, note:'', noteT:0 };
 }
 function fxLocked(){ return S.quote ? S.quote.rate : (S.cur ? S.cur.fx : 0); }
 function tickQuote(){
@@ -168,15 +181,24 @@ function tickQuote(){
   S.quote.left--;
   if(S.quote.left<=0){
     S.quote.left=QUOTE_SECS; S.quote.refreshing=true;      // 先重启，避免每秒重复触发
-    toast('报价已过期，正在按最新汇率重新报价…');
-    fetchRates(function(){ lockQuote(); drawUI(); });
+    var old=S.quote.rate;
+    toast('报价已过期，正在重新报价…');
+    fetchRates(function(){
+      if(DEMO_FX_JITTER) applyJitter();
+      var nw=(S.cur?S.cur.fx:old);
+      lockQuote();
+      S.quote.note = (Math.abs(nw-old)<1e-9) ? '已重新报价（汇率未变）'
+                                             : ('已重新报价  '+fmtFx(old)+'  →  '+fmtFx(nw));
+      S.quote.noteT = Date.now()+6000;
+      drawUI();
+    });
     return;
   }
   if(S.step===2 || S.step===3) drawUI();
 }
 setInterval(tickQuote, 1000);
 
-/* 币种清单 —— 占位；fx = 1 单位该币值多少 USDC（USD）。
+/* 币种清单 —— 占位；base = 抓到的原始汇率，fx = base×(1+演示波动)。
    fx 运行时会从 FX_API 实时抓取；抓不到网就用下面这份 ECB 离线快照，界面会标明用的是哪个。 */
 var FX_SNAPSHOT = { JPY:0.006319, USD:1.000000, EUR:1.120600, KRW:0.000745, THB:0.029824 };
 var FX_SNAP_SRC = 'ECB 参考汇率 · 2026-10-09';
@@ -184,11 +206,11 @@ var FX_API = 'https://open.er-api.com/v6/latest/USD';
 var FX_SRC = '离线快照 · ' + FX_SNAP_SRC;
 var FX_LIVE = false;
 var CURRENCIES = [
-  { code:'JPY', name:'日元', fx:FX_SNAPSHOT.JPY, notes:[1000,5000,10000],       cap:10000 },
-  { code:'USD', name:'美元', fx:FX_SNAPSHOT.USD, notes:[1,5,10,20],             cap:20    },
-  { code:'EUR', name:'欧元', fx:FX_SNAPSHOT.EUR, notes:[5,10,20,50],            cap:50    },
-  { code:'KRW', name:'韩元', fx:FX_SNAPSHOT.KRW, notes:[1000,5000,10000,50000], cap:50000 },
-  { code:'THB', name:'泰铢', fx:FX_SNAPSHOT.THB, notes:[20,50,100,500],         cap:1000  }
+  { code:'JPY', name:'日元', base:FX_SNAPSHOT.JPY, fx:FX_SNAPSHOT.JPY, notes:[1000,5000,10000],       cap:10000 },
+  { code:'USD', name:'美元', base:FX_SNAPSHOT.USD, fx:FX_SNAPSHOT.USD, notes:[1,5,10,20],             cap:20    },
+  { code:'EUR', name:'欧元', base:FX_SNAPSHOT.EUR, fx:FX_SNAPSHOT.EUR, notes:[5,10,20,50],            cap:50    },
+  { code:'KRW', name:'韩元', base:FX_SNAPSHOT.KRW, fx:FX_SNAPSHOT.KRW, notes:[1000,5000,10000,50000], cap:50000 },
+  { code:'THB', name:'泰铢', base:FX_SNAPSHOT.THB, fx:FX_SNAPSHOT.THB, notes:[20,50,100,500],         cap:1000  }
 ];
 /* 实时抓汇率：成功→覆盖 fx 并标明抓取时间；失败/超时→退回 ECB 离线快照（保证断网也能演示） */
 var FX_STATE = 'snap';                       // loading | live | snap
@@ -202,7 +224,7 @@ function fetchRates(cb){
     if(!j || j.result!=='success' || !j.rates) throw new Error('响应异常');
     CURRENCIES.forEach(function(c){
       var v=j.rates[c.code];
-      if(v>0) c.fx = 1/v;                       // API 给的是 1 USD = X，转成 1 X = ? USD
+      if(v>0){ c.base = 1/v; c.fx = c.base; }     // API 给的是 1 USD = X，转成 1 X = ? USD
     });
     FX_LIVE = true; FX_STATE='live';
     FX_SRC = '实时抓取（汇率日 ' + String(j.time_last_update_utc||'').slice(5,16) + '）';
@@ -210,7 +232,7 @@ function fetchRates(cb){
     if(cb) cb(true);
   }).catch(function(){
     if(tid) clearTimeout(tid);
-    CURRENCIES.forEach(function(c){ c.fx = FX_SNAPSHOT[c.code]; });
+    CURRENCIES.forEach(function(c){ c.base = FX_SNAPSHOT[c.code]; c.fx = c.base; });
     FX_LIVE = false; FX_STATE='snap';
     FX_SRC = '离线快照 · ' + FX_SNAP_SRC;
     applyFxLabels();
@@ -460,8 +482,12 @@ function dCash(){
   T('≈ '+amount().toFixed(2)+' USDC 到账　（1 '+c.code+' = '+fmtFx(fxLocked())+' USDC）', UIW/2, 146, 10.5, '#7c5cff', 700, 'center');
   if(S.quote){
     var qp=Math.max(0,Math.min(1,S.quote.left/QUOTE_SECS));
-    RR(20,154,UIW-40,4,2,'#eceef2'); RR(20,154,(UIW-40)*qp,4,2,'#ff6a2c');
-    T(S.quote.refreshing?'正在按最新汇率重新报价…':('本报价锁价 '+S.quote.left+' 秒'), 20, 170, 9.5, '#8b9099', 600);
+    var fresh=Date.now()<(S.quote.noteT||0);
+    RR(20,154,UIW-40,4,2,'#eceef2'); RR(20,154,(UIW-40)*qp,4,2, S.quote.refreshing?'#b4342c':'#ff6a2c');
+    var qtxt = S.quote.refreshing ? '报价已过期 · 正在重新报价…'
+             : (fresh ? S.quote.note : ('本报价锁价 '+S.quote.left+' 秒'));
+    T(qtxt, 20, 170, 9.5, (S.quote.refreshing||fresh)?'#b4342c':'#8b9099', 700);
+    if(DEMO_FX_JITTER) T('演示：模拟行情波动', UIW-20, 170, 9, '#ff6a2c', 700, 'right');
   }
   var y=182;
   rowLine('验钞', S.vstate, y); y+=22;
@@ -507,7 +533,12 @@ function dWallet(){
     ky+=27;
   });
   T('钱直接进这个钱包，不经过任何中间账户。', 20, ky+16, 10.5, '#8b9099');
-  if(S.quote) T('本报价锁价 '+S.quote.left+' 秒 · 1 '+S.cur.code+' = '+fmtFx(fxLocked())+' USDC', 20, ky+34, 9.5, '#8b9099', 600);
+  if(S.quote){
+    var fresh2=Date.now()<(S.quote.noteT||0);
+    T(S.quote.refreshing ? '报价已过期 · 正在重新报价…'
+      : (fresh2 ? S.quote.note : ('本报价锁价 '+S.quote.left+' 秒 · 1 '+S.cur.code+' = '+fmtFx(fxLocked())+' USDC')),
+      20, ky+34, 9.5, (S.quote.refreshing||fresh2)?'#b4342c':'#8b9099', 700);
+  }
   T('扫码', 20, ky+52, 10.5, '#7c5cff', 600);  HIT(20,ky+42,32,16,scanWallet);
   T('用演示地址', 58, ky+52, 10.5, '#7c5cff', 600);
   HIT(58,ky+42,72,16,function(){ S.wallet=DEMO_WALLET; onWalletInput(S.wallet); });
